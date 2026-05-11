@@ -42,9 +42,23 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
         }
       }}
     >
-      {/* Image placeholder with gradient overlay */}
-      <div className="relative h-40 bg-gradient-to-br from-secondary to-muted overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-card/90 to-transparent" />
+      {/* Property Image */}
+      <div className="relative h-44 bg-gradient-to-br from-secondary to-muted overflow-hidden">
+        {property.image_url ? (
+          <img 
+            src={property.image_url} 
+            alt={property.name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center opacity-30">
+            <Building2 className="w-16 h-16 text-foreground" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
         
         {/* AI Score Badge */}
         <div className="absolute top-3 right-3">
@@ -54,19 +68,23 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
           </div>
         </div>
         
+        {/* Sold Badge */}
+        {property.status === 'sold' && (
+          <div className="absolute top-3 left-3">
+            <div className="px-2.5 py-1 bg-amber-500 text-white rounded-full text-xs font-semibold">
+              SOLD
+            </div>
+          </div>
+        )}
+        
         {/* Mom & Pop Badge */}
-        {property.mom_pop && (
+        {property.mom_pop && property.status !== 'sold' && (
           <div className="absolute top-3 left-3">
             <div className="px-2.5 py-1 bg-accent/90 text-accent-foreground rounded-full text-xs font-semibold">
               Mom & Pop
             </div>
           </div>
         )}
-        
-        {/* Property visual placeholder */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-30">
-          <Building2 className="w-16 h-16 text-foreground" />
-        </div>
       </div>
       
       {/* Content */}
@@ -128,14 +146,30 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div>
-            <p className="text-xs text-muted-foreground">Asking Price</p>
-            <p className="font-bold text-lg text-foreground">{formatPrice(property.asking_price)}</p>
+            {property.status === 'sold' ? (
+              <>
+                <p className="text-xs text-amber-500">Sold Price</p>
+                <p className="font-bold text-lg text-amber-500">{formatPrice(property.sold_price)}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">Asking Price</p>
+                <p className="font-bold text-lg text-foreground">{formatPrice(property.asking_price)}</p>
+              </>
+            )}
           </div>
           <div className="text-right">
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{property.source ?? 'Direct'}</p>
-            </div>
+            {property.status === 'sold' && property.price_per_pad ? (
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Price/Pad</p>
+                <p className="text-sm font-semibold text-foreground">${property.price_per_pad.toLocaleString()}</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{property.source ?? 'Direct'}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

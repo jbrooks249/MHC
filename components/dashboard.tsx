@@ -8,7 +8,7 @@ import { StatsBar } from './stats-bar'
 import { PropertyDetailModal } from './property-detail-modal'
 import { PropertyMap } from './property-map'
 import { createClient } from '@/lib/supabase/client'
-import { Building2, Sparkles, Settings, Map, Grid3X3 } from 'lucide-react'
+import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 
 const defaultFilters: FilterState = {
@@ -32,6 +32,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
+  const [marketTab, setMarketTab] = useState<'active' | 'sold'>('active')
 
   // Fetch properties from Supabase
   useEffect(() => {
@@ -73,9 +74,19 @@ export function Dashboard() {
     return Array.from(sources).sort()
   }, [properties])
 
+  // Separate active and sold properties
+  const activeProperties = useMemo(() => {
+    return properties.filter(p => p.status !== 'sold')
+  }, [properties])
+
+  const soldProperties = useMemo(() => {
+    return properties.filter(p => p.status === 'sold')
+  }, [properties])
+
   // Filter and sort properties
   const filteredProperties = useMemo(() => {
-    let result = [...properties]
+    // Start with properties based on selected tab
+    let result = marketTab === 'sold' ? [...soldProperties] : [...activeProperties]
     
     // Text search
     if (filters.search) {
@@ -165,7 +176,7 @@ export function Dashboard() {
     })
     
     return result
-  }, [properties, filters])
+  }, [activeProperties, soldProperties, marketTab, filters])
 
   const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters)
@@ -245,11 +256,43 @@ export function Dashboard() {
             availableSources={availableSources}
           />
           
+          {/* Market Tabs - Active vs Sold */}
+          <div className="flex items-center gap-4 border-b border-border">
+            <button
+              onClick={() => setMarketTab('active')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                marketTab === 'active'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              Active Listings
+              <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                {activeProperties.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setMarketTab('sold')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                marketTab === 'sold'
+                  ? 'border-amber-500 text-amber-500'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <TrendingDown className="w-4 h-4" />
+              Off-Market / Sold
+              <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-500/10 text-amber-500">
+                {soldProperties.length}
+              </span>
+            </button>
+          </div>
+          
           {/* View Toggle and Results count */}
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{filteredProperties.length}</span> of{' '}
-              <span className="font-semibold text-foreground">{properties.length}</span> properties
+              Showing <span className="font-semibold text-foreground">{filteredProperties.length}</span>{' '}
+              {marketTab === 'sold' ? 'sold' : 'active'} properties
             </p>
             
             {/* View Mode Toggle */}

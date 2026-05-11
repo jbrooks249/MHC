@@ -74,9 +74,32 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
           <X className="w-5 h-5 text-foreground" />
         </button>
 
-        {/* Header */}
-        <div className="relative h-48 bg-gradient-to-br from-primary/20 via-secondary to-muted overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
+        {/* Header with Image */}
+        <div className="relative h-56 bg-gradient-to-br from-primary/20 via-secondary to-muted overflow-hidden">
+          {property.image_url ? (
+            <img 
+              src={property.image_url} 
+              alt={property.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center opacity-20">
+              <Building2 className="w-24 h-24 text-foreground" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
+          
+          {/* Sold Badge */}
+          {property.status === 'sold' && (
+            <div className="absolute top-4 right-16 mr-2">
+              <div className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-bold shadow-lg">
+                SOLD
+              </div>
+            </div>
+          )}
           
           {/* AI Score Badge */}
           <div className="absolute top-4 left-4">
@@ -107,13 +130,48 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Sold Transaction Data (if sold) */}
+          {property.status === 'sold' && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-2">
+              <h3 className="font-semibold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Transaction Details - Competitive Analysis
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-amber-500/10 rounded-lg p-3">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Sale Price</p>
+                  <p className="font-bold text-xl text-amber-600 dark:text-amber-400">{formatPrice(property.sold_price)}</p>
+                </div>
+                <div className="bg-amber-500/10 rounded-lg p-3">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Price Per Pad</p>
+                  <p className="font-bold text-xl text-amber-600 dark:text-amber-400">
+                    ${property.price_per_pad?.toLocaleString() ?? 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-amber-500/10 rounded-lg p-3">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Sale Date</p>
+                  <p className="font-bold text-lg text-amber-600 dark:text-amber-400">
+                    {property.sold_date ? new Date(property.sold_date).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-amber-500/10 rounded-lg p-3">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Buyer</p>
+                  <p className="font-semibold text-sm text-amber-600 dark:text-amber-400 truncate">
+                    {property.buyer ?? 'Undisclosed'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <MetricCard 
               icon={<DollarSign className="w-5 h-5" />}
-              label="Asking Price"
-              value={formatPrice(property.asking_price)}
+              label={property.status === 'sold' ? "Sale Price" : "Asking Price"}
+              value={property.status === 'sold' ? formatPrice(property.sold_price) : formatPrice(property.asking_price)}
               highlight
+              isSold={property.status === 'sold'}
             />
             <MetricCard 
               icon={<Users className="w-5 h-5" />}
@@ -127,8 +185,10 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
             />
             <MetricCard 
               icon={<Building2 className="w-5 h-5" />}
-              label="Occupancy"
-              value={formatPercent(property.occupancy)}
+              label={property.status === 'sold' ? "Price/Pad" : "Occupancy"}
+              value={property.status === 'sold' 
+                ? (property.price_per_pad ? `$${property.price_per_pad.toLocaleString()}` : 'N/A')
+                : formatPercent(property.occupancy)}
             />
           </div>
 
@@ -238,19 +298,38 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
   )
 }
 
-function MetricCard({ icon, label, value, highlight = false }: { 
+function MetricCard({ icon, label, value, highlight = false, isSold = false }: { 
   icon: React.ReactNode
   label: string
   value: string
-  highlight?: boolean 
+  highlight?: boolean
+  isSold?: boolean
 }) {
+  const bgClass = isSold && highlight 
+    ? 'bg-amber-500/10 border border-amber-500/20' 
+    : highlight 
+      ? 'bg-primary/10 border border-primary/20' 
+      : 'bg-secondary/50'
+  
+  const iconBgClass = isSold && highlight
+    ? 'bg-amber-500/20 text-amber-500'
+    : highlight 
+      ? 'bg-primary/20 text-primary' 
+      : 'bg-secondary text-primary'
+  
+  const textClass = isSold && highlight
+    ? 'text-xl text-amber-500'
+    : highlight 
+      ? 'text-xl text-primary' 
+      : 'text-lg text-foreground'
+
   return (
-    <div className={`p-4 rounded-xl ${highlight ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/50'}`}>
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${highlight ? 'bg-primary/20 text-primary' : 'bg-secondary text-primary'}`}>
+    <div className={`p-4 rounded-xl ${bgClass}`}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${iconBgClass}`}>
         {icon}
       </div>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`font-bold ${highlight ? 'text-xl text-primary' : 'text-lg text-foreground'}`}>{value}</p>
+      <p className={`font-bold ${textClass}`}>{value}</p>
     </div>
   )
 }
