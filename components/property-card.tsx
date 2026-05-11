@@ -5,6 +5,7 @@ import { Building2, MapPin, Users, TrendingUp, DollarSign, Sparkles } from 'luci
 
 interface PropertyCardProps {
   property: Property
+  onClick?: () => void
 }
 
 function formatPrice(price: number | null): string {
@@ -27,16 +28,20 @@ function getScoreColor(score: number | null): string {
   return 'bg-score-low/20 text-score-low border border-score-low/30'
 }
 
-function getScoreLabel(score: number | null): string {
-  if (score === null) return 'No Score'
-  if (score >= 90) return 'Hot Deal'
-  if (score >= 75) return 'Good'
-  return 'Review'
-}
-
-export function PropertyCard({ property }: PropertyCardProps) {
+export function PropertyCard({ property, onClick }: PropertyCardProps) {
   return (
-    <div className="group relative bg-card rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+    <div 
+      className="group relative bg-card rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
+    >
       {/* Image placeholder with gradient overlay */}
       <div className="relative h-40 bg-gradient-to-br from-secondary to-muted overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-card/90 to-transparent" />

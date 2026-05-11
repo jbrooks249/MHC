@@ -5,8 +5,10 @@ import { Property, FilterState } from '@/lib/types'
 import { SearchFilters } from './search-filters'
 import { PropertyGrid } from './property-grid'
 import { StatsBar } from './stats-bar'
+import { PropertyDetailModal } from './property-detail-modal'
+import { PropertyMap } from './property-map'
 import { createClient } from '@/lib/supabase/client'
-import { Building2, Sparkles, Settings } from 'lucide-react'
+import { Building2, Sparkles, Settings, Map, Grid3X3 } from 'lucide-react'
 import Link from 'next/link'
 
 const defaultFilters: FilterState = {
@@ -28,6 +30,8 @@ export function Dashboard() {
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
 
   // Fetch properties from Supabase
   useEffect(() => {
@@ -167,6 +171,14 @@ export function Dashboard() {
     setFilters(newFilters)
   }, [])
 
+  const handlePropertySelect = useCallback((property: Property) => {
+    setSelectedProperty(property)
+  }, [])
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedProperty(null)
+  }, [])
+
   if (error) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -190,7 +202,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -233,18 +245,64 @@ export function Dashboard() {
             availableSources={availableSources}
           />
           
-          {/* Results count */}
+          {/* View Toggle and Results count */}
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
               Showing <span className="font-semibold text-foreground">{filteredProperties.length}</span> of{' '}
               <span className="font-semibold text-foreground">{properties.length}</span> properties
             </p>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'grid' 
+                    ? 'bg-card text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+                Grid
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'map' 
+                    ? 'bg-card text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Map className="w-4 h-4" />
+                Map
+              </button>
+            </div>
           </div>
           
-          {/* Property Grid */}
-          <PropertyGrid properties={filteredProperties} isLoading={isLoading} />
+          {/* Property Grid or Map */}
+          {viewMode === 'grid' ? (
+            <PropertyGrid 
+              properties={filteredProperties} 
+              isLoading={isLoading}
+              onPropertySelect={handlePropertySelect}
+            />
+          ) : (
+            <div className="h-[600px] rounded-xl overflow-hidden border border-border">
+              <PropertyMap 
+                properties={filteredProperties}
+                onPropertySelect={handlePropertySelect}
+                selectedProperty={selectedProperty}
+              />
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Property Detail Modal */}
+      <PropertyDetailModal 
+        property={selectedProperty}
+        onClose={handleCloseModal}
+      />
     </div>
   )
 }

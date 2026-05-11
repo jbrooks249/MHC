@@ -7,9 +7,10 @@ import { Loader2 } from 'lucide-react'
 interface PropertyGridProps {
   properties: Property[]
   isLoading?: boolean
+  onPropertySelect?: (property: Property) => void
 }
 
-export function PropertyGrid({ properties, isLoading }: PropertyGridProps) {
+export function PropertyGrid({ properties, isLoading, onPropertySelect }: PropertyGridProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -35,7 +36,11 @@ export function PropertyGrid({ properties, isLoading }: PropertyGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {properties.map((property) => (
-        <PropertyCard key={property.id} property={property} />
+        <PropertyCard 
+          key={property.id} 
+          property={property}
+          onClick={() => onPropertySelect?.(property)}
+        />
       ))}
     </div>
   )

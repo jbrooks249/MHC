@@ -16,6 +16,20 @@ export interface Property {
   image_url: string | null
   created_at: string
   updated_at: string
+  // New detailed fields
+  lot_rent: number | null
+  median_home_price: number | null
+  avg_2br_rent: number | null
+  avg_3br_rent: number | null
+  toh: number | null
+  poh: number | null
+  vacant: number | null
+  notes: string | null
+  contact_email: string | null
+  listing_url: string | null
+  price_per_pad: number | null
+  latitude: number | null
+  longitude: number | null
 }
 
 export interface FilterState {
