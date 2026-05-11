@@ -6,7 +6,8 @@ import { SearchFilters } from './search-filters'
 import { PropertyGrid } from './property-grid'
 import { StatsBar } from './stats-bar'
 import { createClient } from '@/lib/supabase/client'
-import { Building2, Sparkles } from 'lucide-react'
+import { Building2, Sparkles, Settings } from 'lucide-react'
+import Link from 'next/link'
 
 const defaultFilters: FilterState = {
   search: '',
@@ -201,9 +202,18 @@ export function Dashboard() {
                 <p className="text-sm text-muted-foreground">AI-Powered Deal Discovery</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-score-high/10 border border-score-high/20">
-              <Sparkles className="w-4 h-4 text-score-high" />
-              <span className="text-sm font-medium text-score-high">AI Scoring Active</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-score-high/10 border border-score-high/20">
+                <Sparkles className="w-4 h-4 text-score-high" />
+                <span className="text-sm font-medium text-score-high">AI Scoring Active</span>
+              </div>
+              <Link 
+                href="/admin"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-sm font-medium">Admin</span>
+              </Link>
             </div>
           </div>
         </div>
