@@ -175,6 +175,35 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
             </div>
           )}
 
+          {/* Source Citation - Prominent Display */}
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5">
+            <h3 className="font-semibold text-emerald-600 dark:text-emerald-400 mb-3 flex items-center gap-2">
+              <ExternalLink className="w-5 h-5" />
+              Verified Data Source
+            </h3>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-full text-sm font-semibold">
+                  {property.source ?? 'Direct'}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Listing data verified from trusted commercial real estate database
+                </span>
+              </div>
+              {property.listing_url && (
+                <a
+                  href={property.listing_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:underline text-sm font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  {property.listing_url}
+                </a>
+              )}
+            </div>
+          </div>
+
           {/* Contact & Links */}
           <div className="flex flex-wrap gap-3">
             {property.contact_email && (
@@ -197,10 +226,6 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                 View Original Listing
               </a>
             )}
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-lg">
-              <Calendar className="w-4 h-4" />
-              <span className="text-sm">Source: {property.source ?? 'Unknown'}</span>
-            </div>
           </div>
 
           {/* Property Info Footer */}

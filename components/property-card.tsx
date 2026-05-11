@@ -132,8 +132,10 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
             <p className="font-bold text-lg text-foreground">{formatPrice(property.asking_price)}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Source</p>
-            <p className="text-sm font-medium text-primary">{property.source ?? 'Unknown'}</p>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{property.source ?? 'Direct'}</p>
+            </div>
           </div>
         </div>
       </div>
