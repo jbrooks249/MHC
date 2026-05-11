@@ -130,12 +130,67 @@ export default function AdminPage() {
     fetchStats()
   }, [fetchStats])
 
+  const [scrapeResult, setScrapeResult] = useState<any>(null)
+  const [scrapeJobs, setScrapeJobs] = useState<any[]>([])
+  const [isUpdatingImages, setIsUpdatingImages] = useState(false)
+  const [imageUpdateResult, setImageUpdateResult] = useState<any>(null)
+
+  const fetchScrapeJobs = async () => {
+    try {
+      const response = await fetch('/api/scrape')
+      const data = await response.json()
+      setScrapeJobs(data.recentJobs || [])
+    } catch (error) {
+      console.error('Failed to fetch scrape jobs:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchScrapeJobs()
+  }, [])
+
+  const handleUpdateStreetView = async () => {
+    setIsUpdatingImages(true)
+    setImageUpdateResult(null)
+    
+    try {
+      const response = await fetch('/api/streetview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updateAll: true })
+      })
+      
+      const result = await response.json()
+      setImageUpdateResult(result)
+    } catch (error: any) {
+      setImageUpdateResult({ error: true, message: error.message })
+    } finally {
+      setIsUpdatingImages(false)
+    }
+  }
+
   const handleScrapeAll = async () => {
     setIsScrapingAll(true)
-    // Simulate scraping delay
-    await new Promise(resolve => setTimeout(resolve, 3000))
-    await fetchStats()
-    setIsScrapingAll(false)
+    setScrapeResult(null)
+    
+    try {
+      const response = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminTrigger: true })
+      })
+      
+      const result = await response.json()
+      setScrapeResult(result)
+      
+      // Refresh stats and jobs
+      await fetchStats()
+      await fetchScrapeJobs()
+    } catch (error: any) {
+      setScrapeResult({ error: true, message: error.message })
+    } finally {
+      setIsScrapingAll(false)
+    }
   }
 
   const formatPrice = (price: number): string => {
@@ -180,14 +235,22 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleScrapeAll}
-              disabled={isScrapingAll}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isScrapingAll ? 'animate-spin' : ''}`} />
-              {isScrapingAll ? 'Scraping...' : 'Refresh All Sources'}
-            </button>
+            <div className="flex items-center gap-4">
+              {scrapeResult && !scrapeResult.error && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>+{scrapeResult.total_added} new, {scrapeResult.total_updated} updated</span>
+                </div>
+              )}
+              <button
+                onClick={handleScrapeAll}
+                disabled={isScrapingAll}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isScrapingAll ? 'animate-spin' : ''}`} />
+                {isScrapingAll ? 'Scraping...' : 'Run Scraper Now'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -348,16 +411,94 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Export Actions */}
-        <div className="mt-6 flex items-center gap-4">
-          <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors">
-            <Download className="w-4 h-4" />
-            Export to CSV
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors">
-            <Download className="w-4 h-4" />
-            Export to JSON
-          </button>
+        {/* Recent Scrape Jobs */}
+        <div className="mt-6 bg-card rounded-xl border border-border">
+          <div className="px-6 py-4 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                <h2 className="font-semibold text-foreground">Recent Scrape Jobs</h2>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Auto-updates daily at 4:00 AM UTC
+              </span>
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {scrapeJobs.length === 0 ? (
+              <div className="px-6 py-8 text-center text-muted-foreground">
+                No scrape jobs yet. Click &quot;Run Scraper Now&quot; to start.
+              </div>
+            ) : (
+              scrapeJobs.slice(0, 10).map((job: any) => (
+                <div key={job.id} className="px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {job.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    ) : job.status === 'failed' ? (
+                      <XCircle className="w-5 h-5 text-red-500" />
+                    ) : (
+                      <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+                    )}
+                    <div>
+                      <p className="font-medium text-foreground">{job.source}</p>
+                      <p className="text-sm text-muted-foreground truncate max-w-md">{job.url}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {job.status === 'completed' && (
+                      <p className="text-sm">
+                        <span className="text-emerald-500">+{job.listings_added}</span>
+                        <span className="text-muted-foreground mx-1">/</span>
+                        <span className="text-blue-500">{job.listings_updated} updated</span>
+                      </p>
+                    )}
+                    {job.status === 'failed' && (
+                      <p className="text-sm text-red-500 truncate max-w-xs">{job.error_message}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(job.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Image & Export Actions */}
+        <div className="mt-6 bg-card rounded-xl border border-border p-6">
+          <h3 className="font-semibold text-foreground mb-4">Actions</h3>
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              onClick={handleUpdateStreetView}
+              disabled={isUpdatingImages}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              <MapPin className={`w-4 h-4 ${isUpdatingImages ? 'animate-pulse' : ''}`} />
+              {isUpdatingImages ? 'Updating Images...' : 'Update Street View Images'}
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors">
+              <Download className="w-4 h-4" />
+              Export to CSV
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors">
+              <Download className="w-4 h-4" />
+              Export to JSON
+            </button>
+          </div>
+          
+          {imageUpdateResult && (
+            <div className={`mt-4 p-4 rounded-lg ${imageUpdateResult.error ? 'bg-red-500/10 border border-red-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}>
+              {imageUpdateResult.error ? (
+                <p className="text-red-500">{imageUpdateResult.message}</p>
+              ) : (
+                <p className="text-emerald-500">
+                  Updated {imageUpdateResult.updated} property images ({imageUpdateResult.failed} unavailable)
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>
