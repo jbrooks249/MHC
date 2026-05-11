@@ -94,11 +94,11 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
           
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-primary" />
+              <DollarSign className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Cap Rate</p>
-              <p className="font-semibold text-sm text-foreground">{formatPercent(property.cap_rate)}</p>
+              <p className="text-xs text-muted-foreground">Lot Rent</p>
+              <p className="font-semibold text-sm text-foreground">{property.lot_rent ? `$${property.lot_rent}/mo` : 'N/A'}</p>
             </div>
           </div>
           
@@ -107,18 +107,20 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
               <Building2 className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Occupancy</p>
-              <p className="font-semibold text-sm text-foreground">{formatPercent(property.occupancy)}</p>
+              <p className="text-xs text-muted-foreground">TOH / POH</p>
+              <p className="font-semibold text-sm text-foreground">
+                {property.toh ?? 0} / {property.poh ?? 0}
+              </p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-              <DollarSign className="w-4 h-4 text-primary" />
+              <TrendingUp className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">NOI</p>
-              <p className="font-semibold text-sm text-foreground">{formatPrice(property.noi)}</p>
+              <p className="text-xs text-muted-foreground">Vacant</p>
+              <p className="font-semibold text-sm text-foreground">{property.vacant ?? 0} lots</p>
             </div>
           </div>
         </div>
