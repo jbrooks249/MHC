@@ -231,6 +231,13 @@ export function Dashboard() {
                 <span className="text-sm font-medium text-score-high">AI Scoring Active</span>
               </div>
               <Link 
+                href="/analysis"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-sm font-medium">Analysis</span>
+              </Link>
+              <Link 
                 href="/admin"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
               >
