@@ -467,7 +467,7 @@ export async function saveListings(listings: ScrapedListing[]): Promise<{
         .limit(5)
 
       // Find best match among existing
-      let bestMatch: typeof existing extends Array<infer T> ? T : never | null = null
+      let bestMatch: { id: string; name: string; asking_price: number | null; address: string | null; city: string; state: string; updated_at: string } | null = null
       let bestSimilarity = 0
 
       for (const ex of existing || []) {

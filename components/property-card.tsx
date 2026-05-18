@@ -1,7 +1,7 @@
 'use client'
 
 import { Property } from '@/lib/types'
-import { Building2, MapPin, Users, TrendingUp, DollarSign, Sparkles } from 'lucide-react'
+import { Building2, MapPin, Users, TrendingUp, DollarSign, Sparkles, ExternalLink } from 'lucide-react'
 
 interface PropertyCardProps {
   property: Property
@@ -158,7 +158,7 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
               </>
             )}
           </div>
-          <div className="text-right">
+          <div className="text-right flex items-center gap-2">
             {property.status === 'sold' && property.price_per_pad ? (
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Price/Pad</p>
@@ -169,6 +169,19 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{property.source ?? 'Direct'}</p>
               </div>
+            )}
+            {/* Direct listing link */}
+            {property.listing_url && (
+              <a
+                href={property.listing_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                title="View Original Listing"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
             )}
           </div>
         </div>

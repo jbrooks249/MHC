@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import FirecrawlApp from '@mendable/firecrawl-js'
+import Firecrawl from '@mendable/firecrawl-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const firecrawl = new FirecrawlApp({ apiKey: firecrawlKey })
+        const firecrawl = new Firecrawl({ apiKey: firecrawlKey })
     
     const results = {
       total_scraped: 0,
@@ -211,15 +211,17 @@ export async function POST(request: NextRequest) {
 
         try {
           // Scrape the page using Firecrawl
-          const scrapeResult = await firecrawl.scrapeUrl(url, {
+          const scrapeResult = await firecrawl.scrape(url, {
             formats: ['markdown', 'html'],
           })
 
-          if (!scrapeResult.success) {
-            throw new Error(scrapeResult.error || 'Scrape failed')
-          }
-
+          // The new Firecrawl SDK returns the document directly
           const content = scrapeResult.markdown || scrapeResult.html || ''
+          
+          if (!content) {
+            throw new Error('No content returned from scrape')
+          }
+          
           const listings = extractListingData(content, source.name, url)
           
           let added = 0
