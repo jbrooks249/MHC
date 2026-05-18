@@ -6,6 +6,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Helper to log activity
+async function logActivity(
+  action: string,
+  entityId: string | null,
+  entityName: string | null,
+  details?: Record<string, unknown>,
+  changes?: Record<string, unknown>
+) {
+  try {
+    await supabase.from('activity_log').insert({
+      action,
+      entity_type: 'property',
+      entity_id: entityId,
+      entity_name: entityName,
+      details,
+      changes
+    })
+  } catch (error) {
+    console.error('Failed to log activity:', error)
+  }
+}
+
 // GET - Fetch properties with filters
 export async function GET(request: NextRequest) {
   try {
@@ -26,9 +48,12 @@ export async function GET(request: NextRequest) {
         .select('*')
         .eq('id', id)
         .single()
+    if (error) throw error
 
-      if (error) throw error
-      return NextResponse.json({ success: true, property: data })
+    // Log activity
+    await logActivity('create', data.id, data.name, { source: data.source })
+
+    return NextResponse.json({ success: true, property: data })
     }
 
     // List properties with filters
@@ -171,6 +196,9 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error
 
+    // Log activity with changes
+    await logActivity('update', data.id, data.name, undefined, cleanUpdates)
+
     return NextResponse.json({ success: true, property: data })
   } catch (error) {
     console.error('Error updating property:', error)
@@ -181,18 +209,57 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete property
+// DELETE - Delete property (supports bulk delete)
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const ids = searchParams.get('ids') // For bulk delete: comma-separated IDs
 
-    if (!id) {
+    if (!id && !ids) {
       return NextResponse.json(
-        { success: false, error: 'Property ID is required' },
+        { success: false, error: 'Property ID(s) required' },
         { status: 400 }
       )
     }
+
+    // Bulk delete
+    if (ids) {
+      const idArray = ids.split(',').map(i => i.trim())
+      
+      // Get property names before deletion for logging
+      const { data: properties } = await supabase
+        .from('properties')
+        .select('id, name')
+        .in('id', idArray)
+      
+      const { error } = await supabase
+        .from('properties')
+        .delete()
+        .in('id', idArray)
+
+      if (error) throw error
+
+      // Log bulk delete activity
+      await logActivity('bulk_delete', null, null, {
+        count: idArray.length,
+        properties: properties?.map(p => ({ id: p.id, name: p.name }))
+      })
+
+      return NextResponse.json({ 
+        success: true, 
+        message: `${idArray.length} properties deleted`,
+        deleted: idArray.length
+      })
+    }
+
+    // Single delete
+    // Get property name before deletion
+    const { data: property } = await supabase
+      .from('properties')
+      .select('name')
+      .eq('id', id)
+      .single()
 
     const { error } = await supabase
       .from('properties')
@@ -201,11 +268,75 @@ export async function DELETE(request: NextRequest) {
 
     if (error) throw error
 
+    // Log delete activity
+    await logActivity('delete', id, property?.name || 'Unknown')
+
     return NextResponse.json({ success: true, message: 'Property deleted' })
   } catch (error) {
     console.error('Error deleting property:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to delete property' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH - Bulk update properties
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { ids, updates } = body
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Property IDs array is required' },
+        { status: 400 }
+      )
+    }
+
+    // Clean up the updates
+    const cleanUpdates: Record<string, unknown> = {
+      updated_at: new Date().toISOString()
+    }
+
+    const allowedFields = [
+      'status', 'mom_pop', 'source', 'notes', 'lot_rent', 'cap_rate', 'occupancy'
+    ]
+
+    for (const field of allowedFields) {
+      if (field in updates) {
+        cleanUpdates[field] = updates[field]
+      }
+    }
+
+    // Get property names before update for logging
+    const { data: properties } = await supabase
+      .from('properties')
+      .select('id, name')
+      .in('id', ids)
+
+    const { error } = await supabase
+      .from('properties')
+      .update(cleanUpdates)
+      .in('id', ids)
+
+    if (error) throw error
+
+    // Log bulk update activity
+    await logActivity('bulk_update', null, null, {
+      count: ids.length,
+      properties: properties?.map(p => ({ id: p.id, name: p.name }))
+    }, cleanUpdates)
+
+    return NextResponse.json({
+      success: true,
+      message: `${ids.length} properties updated`,
+      updated: ids.length
+    })
+  } catch (error) {
+    console.error('Error bulk updating properties:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to bulk update properties' },
       { status: 500 }
     )
   }

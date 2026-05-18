@@ -86,7 +86,7 @@ interface SourceStats {
   totalListings?: number
 }
 
-type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import' | 'ai' | 'properties'
+type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import' | 'ai' | 'properties' | 'activity'
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -117,6 +117,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [propertySearch, setPropertySearch] = useState('')
   const [isEditingProperty, setIsEditingProperty] = useState(false)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
+  const [isBulkEditing, setIsBulkEditing] = useState(false)
+  const [bulkEditForm, setBulkEditForm] = useState<Record<string, unknown>>({})
+  
+  // Activity Log state
+  const [activityLogs, setActivityLogs] = useState<Record<string, unknown>[]>([])
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false)
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     primary: true,
@@ -331,6 +338,103 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Bulk operations
+  const togglePropertySelection = (id: string) => {
+    setSelectedPropertyIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const selectAllProperties = () => {
+    if (selectedPropertyIds.length === propertiesList.length) {
+      setSelectedPropertyIds([])
+    } else {
+      setSelectedPropertyIds(propertiesList.map(p => String(p.id)))
+    }
+  }
+
+  const bulkDeleteProperties = async () => {
+    if (selectedPropertyIds.length === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedPropertyIds.length} properties?`)) return
+    
+    try {
+      const response = await fetch(`/api/properties?ids=${selectedPropertyIds.join(',')}`, { 
+        method: 'DELETE' 
+      })
+      const result = await response.json()
+      if (result.success) {
+        setSelectedPropertyIds([])
+        await fetchProperties(propertySearch)
+        await fetchStatus()
+        alert(`Successfully deleted ${result.deleted} properties`)
+      }
+    } catch (error) {
+      console.error('Failed to bulk delete:', error)
+    }
+  }
+
+  const bulkUpdateProperties = async () => {
+    if (selectedPropertyIds.length === 0 || Object.keys(bulkEditForm).length === 0) return
+    
+    try {
+      const response = await fetch('/api/properties', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedPropertyIds, updates: bulkEditForm })
+      })
+      const result = await response.json()
+      if (result.success) {
+        setSelectedPropertyIds([])
+        setBulkEditForm({})
+        setIsBulkEditing(false)
+        await fetchProperties(propertySearch)
+        alert(`Successfully updated ${result.updated} properties`)
+      }
+    } catch (error) {
+      console.error('Failed to bulk update:', error)
+    }
+  }
+
+  const exportProperties = async (format: 'csv' | 'json' = 'csv', onlySelected = false) => {
+    try {
+      let url = `/api/export?format=${format}`
+      if (onlySelected && selectedPropertyIds.length > 0) {
+        url += `&ids=${selectedPropertyIds.join(',')}`
+      }
+      
+      if (format === 'csv') {
+        window.open(url, '_blank')
+      } else {
+        const response = await fetch(url)
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data.properties, null, 2)], { type: 'application/json' })
+        const downloadUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = `mhc-properties-${new Date().toISOString().split('T')[0]}.json`
+        a.click()
+      }
+    } catch (error) {
+      console.error('Failed to export:', error)
+    }
+  }
+
+  // Activity log
+  const fetchActivityLogs = async () => {
+    setIsLoadingLogs(true)
+    try {
+      const response = await fetch('/api/activity?limit=50')
+      const data = await response.json()
+      if (data.success) {
+        setActivityLogs(data.logs || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch activity logs:', error)
+    } finally {
+      setIsLoadingLogs(false)
+    }
+  }
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A'
     return new Date(dateStr).toLocaleString()
@@ -405,6 +509,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     { id: 'quality', label: 'Data Quality', icon: <Shield className="w-4 h-4" /> },
     { id: 'images', label: 'Images', icon: <Image className="w-4 h-4" /> },
     { id: 'import', label: 'Import', icon: <Database className="w-4 h-4" /> },
+    { id: 'activity', label: 'Activity', icon: <History className="w-4 h-4" /> },
   ]
 
   return (
@@ -1406,8 +1511,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               {/* Properties Tab */}
               {activeTab === 'properties' && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 relative">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-[200px] relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
@@ -1425,6 +1530,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       Search
                     </button>
                     <button
+                      onClick={() => exportProperties('csv', false)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-600 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-colors"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                    <button
                       onClick={() => {
                         setSelectedProperty(null)
                         setEditForm({ status: 'active', mom_pop: true })
@@ -1436,6 +1548,108 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       Add Property
                     </button>
                   </div>
+
+                  {/* Bulk Actions Bar */}
+                  {selectedPropertyIds.length > 0 && !isEditingProperty && (
+                    <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                      <span className="text-sm font-medium text-foreground">
+                        {selectedPropertyIds.length} selected
+                      </span>
+                      <button
+                        onClick={() => setIsBulkEditing(true)}
+                        className="px-3 py-1.5 text-sm bg-blue-500/20 text-blue-600 rounded hover:bg-blue-500/30 transition-colors"
+                      >
+                        Bulk Edit
+                      </button>
+                      <button
+                        onClick={bulkDeleteProperties}
+                        className="px-3 py-1.5 text-sm bg-red-500/20 text-red-600 rounded hover:bg-red-500/30 transition-colors"
+                      >
+                        Delete Selected
+                      </button>
+                      <button
+                        onClick={() => exportProperties('csv', true)}
+                        className="px-3 py-1.5 text-sm bg-emerald-500/20 text-emerald-600 rounded hover:bg-emerald-500/30 transition-colors"
+                      >
+                        Export Selected
+                      </button>
+                      <button
+                        onClick={() => setSelectedPropertyIds([])}
+                        className="ml-auto px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Bulk Edit Form */}
+                  {isBulkEditing && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                      <h4 className="font-medium text-foreground mb-3">Bulk Edit {selectedPropertyIds.length} Properties</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Status</label>
+                          <select
+                            value={String(bulkEditForm.status || '')}
+                            onChange={(e) => setBulkEditForm({ ...bulkEditForm, status: e.target.value || undefined })}
+                            className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground"
+                          >
+                            <option value="">No change</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="sold">Sold</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Mom & Pop</label>
+                          <select
+                            value={bulkEditForm.mom_pop === undefined ? '' : String(bulkEditForm.mom_pop)}
+                            onChange={(e) => setBulkEditForm({ ...bulkEditForm, mom_pop: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                            className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground"
+                          >
+                            <option value="">No change</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Source</label>
+                          <input
+                            type="text"
+                            placeholder="No change"
+                            value={String(bulkEditForm.source || '')}
+                            onChange={(e) => setBulkEditForm({ ...bulkEditForm, source: e.target.value || undefined })}
+                            className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Lot Rent</label>
+                          <input
+                            type="number"
+                            placeholder="No change"
+                            value={String(bulkEditForm.lot_rent || '')}
+                            onChange={(e) => setBulkEditForm({ ...bulkEditForm, lot_rent: e.target.value ? parseInt(e.target.value) : undefined })}
+                            className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={bulkUpdateProperties}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          Apply Changes
+                        </button>
+                        <button
+                          onClick={() => { setIsBulkEditing(false); setBulkEditForm({}) }}
+                          className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {isEditingProperty ? (
                     <div className="bg-secondary/30 rounded-xl p-6 border border-border">
@@ -1626,6 +1840,19 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      {propertiesList.length > 0 && (
+                        <div className="flex items-center gap-2 pb-2 border-b border-border">
+                          <input
+                            type="checkbox"
+                            checked={selectedPropertyIds.length === propertiesList.length && propertiesList.length > 0}
+                            onChange={selectAllProperties}
+                            className="w-4 h-4 rounded border-border"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            Select All ({propertiesList.length})
+                          </span>
+                        </div>
+                      )}
                       {propertiesList.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                           <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1635,8 +1862,18 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                         propertiesList.map((property) => (
                           <div
                             key={String(property.id)}
-                            className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border hover:border-primary/30 transition-colors"
+                            className={`flex items-center gap-3 p-4 bg-secondary/30 rounded-lg border transition-colors ${
+                              selectedPropertyIds.includes(String(property.id)) 
+                                ? 'border-primary bg-primary/5' 
+                                : 'border-border hover:border-primary/30'
+                            }`}
                           >
+                            <input
+                              type="checkbox"
+                              checked={selectedPropertyIds.includes(String(property.id))}
+                              onChange={() => togglePropertySelection(String(property.id))}
+                              className="w-4 h-4 rounded border-border"
+                            />
                             <div className="flex-1">
                               <h4 className="font-medium text-foreground">{String(property.name)}</h4>
                               <p className="text-sm text-muted-foreground">
@@ -1861,6 +2098,95 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                         </a>
                       ))}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Activity Log Tab */}
+              {activeTab === 'activity' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <History className="w-5 h-5 text-primary" />
+                      Activity Log
+                    </h3>
+                    <button
+                      onClick={fetchActivityLogs}
+                      disabled={isLoadingLogs}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      {isLoadingLogs ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="bg-secondary/30 rounded-xl border border-border overflow-hidden">
+                    {activityLogs.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No activity logged yet.</p>
+                        <button
+                          onClick={fetchActivityLogs}
+                          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                          Load Activity Log
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
+                        {activityLogs.map((log) => (
+                          <div key={String(log.id)} className="p-4 hover:bg-secondary/50 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${
+                                  log.action === 'create' ? 'bg-emerald-500/20 text-emerald-600' :
+                                  log.action === 'update' ? 'bg-blue-500/20 text-blue-600' :
+                                  log.action === 'delete' || log.action === 'bulk_delete' ? 'bg-red-500/20 text-red-600' :
+                                  log.action === 'bulk_update' ? 'bg-purple-500/20 text-purple-600' :
+                                  log.action === 'export' ? 'bg-cyan-500/20 text-cyan-600' :
+                                  'bg-secondary text-muted-foreground'
+                                }`}>
+                                  {log.action === 'create' && <Plus className="w-4 h-4" />}
+                                  {log.action === 'update' && <Pencil className="w-4 h-4" />}
+                                  {(log.action === 'delete' || log.action === 'bulk_delete') && <Trash2 className="w-4 h-4" />}
+                                  {log.action === 'bulk_update' && <Settings className="w-4 h-4" />}
+                                  {log.action === 'export' && <FileText className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {String(log.action).replace('_', ' ').toUpperCase()}
+                                    {log.entity_name ? `: ${String(log.entity_name)}` : ''}
+                                  </p>
+                                  {log.details ? (
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      {typeof log.details === 'object' && (log.details as Record<string, unknown>).count 
+                                        ? `${(log.details as Record<string, unknown>).count} items affected` 
+                                        : JSON.stringify(log.details)}
+                                    </p>
+                                  ) : null}
+                                  {log.changes && typeof log.changes === 'object' && Object.keys(log.changes as Record<string, unknown>).length > 0 ? (
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      <span className="font-medium">Changes: </span>
+                                      {Object.entries(log.changes as Record<string, unknown>)
+                                        .filter(([key]) => key !== 'updated_at')
+                                        .map(([key, value]) => `${key}: ${String(value)}`)
+                                        .join(', ')}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {log.created_at ? new Date(String(log.created_at)).toLocaleString() : 'Unknown'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
