@@ -343,15 +343,44 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active')
 
+    // Count properties with images
+    const { count: propertiesWithImages } = await supabase
+      .from('properties')
+      .select('*', { count: 'exact', head: true })
+      .not('image_url', 'is', null)
+
+    // Count properties with coordinates
+    const { count: propertiesWithCoords } = await supabase
+      .from('properties')
+      .select('*', { count: 'exact', head: true })
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+
+    // Import and get all sources from the enhanced scraper
+    const { ALL_SOURCES } = await import('@/lib/enhanced-scraper')
+    
+    // Map sources for admin panel
+    const sources = ALL_SOURCES.map((source: { id: string; name: string; type: string; enabled: boolean; reliabilityScore: number }) => ({
+      id: source.id,
+      name: source.name,
+      type: source.type,
+      enabled: source.enabled,
+      reliabilityScore: source.reliabilityScore
+    }))
+
     return NextResponse.json({
       recentJobs: recentJobs || [],
       stats: {
         totalProperties,
         activeProperties,
+        propertiesWithImages,
+        propertiesWithCoords,
         lastScrape: recentJobs?.[0]?.created_at
-      }
+      },
+      sources
     })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

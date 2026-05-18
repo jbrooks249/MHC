@@ -798,6 +798,643 @@ export const SCRAPER_SOURCES: ScraperSource[] = [
       listingUrl: ['url'],
       imageUrl: ['image']
     }
+  },
+
+  // ===== ADDITIONAL SOURCES FOR COMPREHENSIVE COVERAGE =====
+
+  // FORECLOSURE & DISTRESSED PROPERTY SOURCES
+  {
+    id: 'foreclosure-com',
+    name: 'Foreclosure.com',
+    type: 'auction',
+    baseUrl: 'https://www.foreclosure.com',
+    searchPatterns: [
+      { pattern: '/search/mobile-home-parks', type: 'listing_page' },
+      { pattern: '/commercial/mobile-home-parks', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.82,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 8, requestsPerHour: 150, delayBetweenRequests: 8000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name', 'title'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price', 'starting-bid'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'realtytrac',
+    name: 'RealtyTrac',
+    type: 'auction',
+    baseUrl: 'https://www.realtytrac.com',
+    searchPatterns: [
+      { pattern: '/mls-foreclosure-search/mobile-home-parks', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.80,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 8, requestsPerHour: 150, delayBetweenRequests: 8000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: [],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // COMMERCIAL REAL ESTATE MARKETPLACES
+  {
+    id: 'catylist',
+    name: 'Catylist',
+    type: 'aggregator',
+    baseUrl: 'https://www.catylist.com',
+    searchPatterns: [
+      { pattern: '/listing-search?type=mobile-home-park', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.85,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 200, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: ['cap-rate'],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'cityfeet',
+    name: 'CityFeet',
+    type: 'aggregator',
+    baseUrl: 'https://www.cityfeet.com',
+    searchPatterns: [
+      { pattern: '/commercial-real-estate/mobile-home-parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.78,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 200, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'totalcommercial',
+    name: 'Total Commercial',
+    type: 'aggregator',
+    baseUrl: 'https://www.totalcommercial.com',
+    searchPatterns: [
+      { pattern: '/listings/mobile-home-parks', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.76,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 200, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // SPECIALIZED MHP BROKERS
+  {
+    id: 'mhp-broker',
+    name: 'MHP Broker',
+    type: 'broker',
+    baseUrl: 'https://www.mhpbroker.com',
+    searchPatterns: [
+      { pattern: '/listings', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.92,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'lots', 'pads'],
+      capRate: ['cap-rate'],
+      lotRent: ['lot-rent'],
+      occupancy: ['occupancy'],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'parkhomesales',
+    name: 'Park Home Sales',
+    type: 'broker',
+    baseUrl: 'https://www.parkhomesales.com',
+    searchPatterns: [
+      { pattern: '/parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.88,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'rvparkstore',
+    name: 'RV Park Store',
+    type: 'primary',
+    baseUrl: 'https://www.rvparkstore.com',
+    searchPatterns: [
+      { pattern: '/rv-parks-for-sale', type: 'listing_page' },
+      ...US_STATES.map(state => ({
+        pattern: `/rv-parks-for-sale/${STATE_NAMES[state]}`,
+        type: 'state_page' as const,
+        pagination: { type: 'query_param' as const, param: 'page', maxPages: 15 }
+      }))
+    ],
+    enabled: true,
+    reliabilityScore: 0.90,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 8, requestsPerHour: 150, delayBetweenRequests: 8000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['spaces', 'sites'],
+      capRate: ['cap-rate'],
+      lotRent: [],
+      occupancy: ['occupancy'],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // GOVERNMENT & PUBLIC RECORDS
+  {
+    id: 'hud-mhp',
+    name: 'HUD MHP Listings',
+    type: 'secondary',
+    baseUrl: 'https://www.hudhomestore.gov',
+    searchPatterns: [
+      { pattern: '/Listing/PropertySearch.aspx?propertyType=MHP', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.95,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 5, requestsPerHour: 100, delayBetweenRequests: 12000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price', 'list-price'],
+      units: [],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // INDUSTRY NEWS & TRANSACTIONS
+  {
+    id: 'mhpdigest',
+    name: 'MHP Digest',
+    type: 'news',
+    baseUrl: 'https://mhpdigest.com',
+    searchPatterns: [
+      { pattern: '/category/listings', type: 'listing_page' },
+      { pattern: '/category/sales', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.75,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['title'],
+      address: [],
+      city: [],
+      state: [],
+      price: ['price'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'connectcre',
+    name: 'Connect CRE',
+    type: 'news',
+    baseUrl: 'https://www.connectcre.com',
+    searchPatterns: [
+      { pattern: '/stories?category=manufactured-housing', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.72,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['title'],
+      address: [],
+      city: [],
+      state: [],
+      price: ['price', 'value'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'globest',
+    name: 'GlobeSt',
+    type: 'news',
+    baseUrl: 'https://www.globest.com',
+    searchPatterns: [
+      { pattern: '/search?q=mobile+home+park', type: 'search_results' },
+      { pattern: '/search?q=manufactured+housing', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.70,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 8, requestsPerHour: 120, delayBetweenRequests: 8000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['title'],
+      address: [],
+      city: [],
+      state: [],
+      price: ['price'],
+      units: ['units'],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // MORE REGIONAL SOURCES
+  {
+    id: 'california-mhp',
+    name: 'California MHP',
+    type: 'regional',
+    baseUrl: 'https://www.californiamobilehomeparks.com',
+    searchPatterns: [
+      { pattern: '/for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.85,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'arizona-mhp',
+    name: 'Arizona MHP',
+    type: 'regional',
+    baseUrl: 'https://www.arizonamobilehomeparks.com',
+    searchPatterns: [
+      { pattern: '/parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.83,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'georgia-mhp',
+    name: 'Georgia MHP',
+    type: 'regional',
+    baseUrl: 'https://www.georgiamobilehomeparks.com',
+    searchPatterns: [
+      { pattern: '/parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.82,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'north-carolina-mhp',
+    name: 'North Carolina MHP',
+    type: 'regional',
+    baseUrl: 'https://www.northcarolinamobilehomeparks.com',
+    searchPatterns: [
+      { pattern: '/parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.82,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'michigan-mhp',
+    name: 'Michigan MHP',
+    type: 'regional',
+    baseUrl: 'https://www.michiganmobilehomeparks.com',
+    searchPatterns: [
+      { pattern: '/parks-for-sale', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.82,
+    dataFreshness: 'weekly',
+    requiresAuth: false,
+    requiresProxy: false,
+    rateLimit: { requestsPerMinute: 10, requestsPerHour: 150, delayBetweenRequests: 6000, respectRobotsTxt: true, backoffMultiplier: 2 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units', 'spaces'],
+      capRate: [],
+      lotRent: ['rent'],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // ADDITIONAL BROKER NETWORKS
+  {
+    id: 'colliers',
+    name: 'Colliers',
+    type: 'broker',
+    baseUrl: 'https://www.colliers.com',
+    searchPatterns: [
+      { pattern: '/us/properties/mobile-home-parks', type: 'listing_page' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.93,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: true,
+    rateLimit: { requestsPerMinute: 3, requestsPerHour: 30, delayBetweenRequests: 20000, respectRobotsTxt: true, backoffMultiplier: 3 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: ['cap-rate'],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'newmark',
+    name: 'Newmark',
+    type: 'broker',
+    baseUrl: 'https://www.nmrk.com',
+    searchPatterns: [
+      { pattern: '/listings?propertyType=manufactured', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.92,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: true,
+    rateLimit: { requestsPerMinute: 3, requestsPerHour: 30, delayBetweenRequests: 20000, respectRobotsTxt: true, backoffMultiplier: 3 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: ['cap-rate'],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+  {
+    id: 'berkadia',
+    name: 'Berkadia',
+    type: 'broker',
+    baseUrl: 'https://www.berkadia.com',
+    searchPatterns: [
+      { pattern: '/properties?type=manufactured-housing', type: 'search_results' }
+    ],
+    enabled: true,
+    reliabilityScore: 0.94,
+    dataFreshness: 'daily',
+    requiresAuth: false,
+    requiresProxy: true,
+    rateLimit: { requestsPerMinute: 3, requestsPerHour: 30, delayBetweenRequests: 20000, respectRobotsTxt: true, backoffMultiplier: 3 },
+    extractionMethod: 'firecrawl',
+    fields: {
+      name: ['name'],
+      address: ['address'],
+      city: ['city'],
+      state: ['state'],
+      price: ['price'],
+      units: ['units'],
+      capRate: ['cap-rate'],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: ['image']
+    }
+  },
+
+  // SEARCH ENGINE DEEP CRAWL SOURCES
+  {
+    id: 'google-search-mhp',
+    name: 'Google Search MHP',
+    type: 'aggregator',
+    baseUrl: 'https://www.google.com',
+    searchPatterns: [
+      { pattern: '/search?q=mobile+home+park+for+sale', type: 'search_results' },
+      { pattern: '/search?q=manufactured+housing+community+for+sale', type: 'search_results' },
+      { pattern: '/search?q=trailer+park+for+sale', type: 'search_results' }
+    ],
+    enabled: false, // Disabled by default - use as fallback only
+    reliabilityScore: 0.60,
+    dataFreshness: 'realtime',
+    requiresAuth: false,
+    requiresProxy: true,
+    rateLimit: { requestsPerMinute: 2, requestsPerHour: 20, delayBetweenRequests: 30000, respectRobotsTxt: true, backoffMultiplier: 5 },
+    extractionMethod: 'deep_crawl',
+    fields: {
+      name: ['title'],
+      address: [],
+      city: [],
+      state: [],
+      price: ['price'],
+      units: [],
+      capRate: [],
+      lotRent: [],
+      occupancy: [],
+      listingUrl: ['url'],
+      imageUrl: []
+    }
   }
 ]
 
