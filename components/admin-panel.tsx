@@ -24,7 +24,14 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
-  DollarSign
+  DollarSign,
+  Bot,
+  Pencil,
+  Search,
+  Trash2,
+  Plus,
+  FileText,
+  Link
 } from 'lucide-react'
 
 interface ScrapeJob {
@@ -79,7 +86,7 @@ interface SourceStats {
   totalListings?: number
 }
 
-type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import'
+type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import' | 'ai' | 'properties'
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -98,6 +105,19 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   } | null>(null)
   const [scrapeResult, setScrapeResult] = useState<Record<string, unknown> | null>(null)
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
+  
+  // AI Task state
+  const [aiTaskRunning, setAiTaskRunning] = useState(false)
+  const [aiTaskResult, setAiTaskResult] = useState<Record<string, unknown> | null>(null)
+  const [selectedAiTask, setSelectedAiTask] = useState<string>('analyze_property')
+  
+  // Properties state
+  const [propertiesList, setPropertiesList] = useState<Record<string, unknown>[]>([])
+  const [selectedProperty, setSelectedProperty] = useState<Record<string, unknown> | null>(null)
+  const [propertySearch, setPropertySearch] = useState('')
+  const [isEditingProperty, setIsEditingProperty] = useState(false)
+  const [editForm, setEditForm] = useState<Record<string, unknown>>({})
+  
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     primary: true,
     broker: false,
@@ -236,6 +256,81 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // AI Task functions
+  const runAiTask = async (task: string, propertyIds?: string[]) => {
+    setAiTaskRunning(true)
+    setAiTaskResult(null)
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, propertyIds })
+      })
+      const result = await response.json()
+      setAiTaskResult(result)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setAiTaskResult({ error: true, message: errorMessage })
+    } finally {
+      setAiTaskRunning(false)
+    }
+  }
+
+  // Property functions
+  const fetchProperties = async (search?: string) => {
+    try {
+      const params = new URLSearchParams({ limit: '20' })
+      if (search) params.set('search', search)
+      const response = await fetch(`/api/properties?${params}`)
+      const data = await response.json()
+      if (data.success) {
+        setPropertiesList(data.properties || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch properties:', error)
+    }
+  }
+
+  const saveProperty = async () => {
+    try {
+      const method = selectedProperty?.id ? 'PUT' : 'POST'
+      const body = selectedProperty?.id 
+        ? { id: selectedProperty.id, ...editForm }
+        : editForm
+      
+      const response = await fetch('/api/properties', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        setIsEditingProperty(false)
+        setSelectedProperty(null)
+        setEditForm({})
+        await fetchProperties(propertySearch)
+        await fetchStatus()
+      }
+    } catch (error) {
+      console.error('Failed to save property:', error)
+    }
+  }
+
+  const deleteProperty = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this property?')) return
+    try {
+      const response = await fetch(`/api/properties?id=${id}`, { method: 'DELETE' })
+      const result = await response.json()
+      if (result.success) {
+        await fetchProperties(propertySearch)
+        await fetchStatus()
+      }
+    } catch (error) {
+      console.error('Failed to delete property:', error)
+    }
+  }
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A'
     return new Date(dateStr).toLocaleString()
@@ -303,6 +398,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'properties', label: 'Properties', icon: <Building2 className="w-4 h-4" /> },
+    { id: 'ai', label: 'AI Tasks', icon: <Bot className="w-4 h-4" /> },
     { id: 'sources', label: 'Sources', icon: <Globe className="w-4 h-4" /> },
     { id: 'scraper', label: 'Scraper', icon: <Zap className="w-4 h-4" /> },
     { id: 'quality', label: 'Data Quality', icon: <Shield className="w-4 h-4" /> },
@@ -1301,6 +1398,468 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                         <Building2 className="w-4 h-4" />
                         Verify Names
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Properties Tab */}
+              {activeTab === 'properties' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search properties by name, city, or address..."
+                        value={propertySearch}
+                        onChange={(e) => setPropertySearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && fetchProperties(propertySearch)}
+                        className="w-full pl-10 pr-4 py-2 bg-secondary/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </div>
+                    <button
+                      onClick={() => fetchProperties(propertySearch)}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                      Search
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedProperty(null)
+                        setEditForm({ status: 'active', mom_pop: true })
+                        setIsEditingProperty(true)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Property
+                    </button>
+                  </div>
+
+                  {isEditingProperty ? (
+                    <div className="bg-secondary/30 rounded-xl p-6 border border-border">
+                      <h3 className="text-lg font-semibold text-foreground mb-4">
+                        {selectedProperty?.id ? 'Edit Property' : 'Add New Property'}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={String(editForm.name || '')}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="Property name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">City *</label>
+                          <input
+                            type="text"
+                            value={String(editForm.city || '')}
+                            onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="City"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">State *</label>
+                          <input
+                            type="text"
+                            value={String(editForm.state || '')}
+                            onChange={(e) => setEditForm({ ...editForm, state: e.target.value.toUpperCase() })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="TX"
+                            maxLength={2}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm text-muted-foreground mb-1">Address</label>
+                          <input
+                            type="text"
+                            value={String(editForm.address || '')}
+                            onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="123 Main St"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Units</label>
+                          <input
+                            type="number"
+                            value={String(editForm.units || '')}
+                            onChange={(e) => setEditForm({ ...editForm, units: parseInt(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Asking Price</label>
+                          <input
+                            type="number"
+                            value={String(editForm.asking_price || '')}
+                            onChange={(e) => setEditForm({ ...editForm, asking_price: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="5000000"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Lot Rent</label>
+                          <input
+                            type="number"
+                            value={String(editForm.lot_rent || '')}
+                            onChange={(e) => setEditForm({ ...editForm, lot_rent: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Cap Rate (%)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={String(editForm.cap_rate || '')}
+                            onChange={(e) => setEditForm({ ...editForm, cap_rate: parseFloat(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="7.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Occupancy (%)</label>
+                          <input
+                            type="number"
+                            value={String(editForm.occupancy || '')}
+                            onChange={(e) => setEditForm({ ...editForm, occupancy: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="95"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">TOH Count</label>
+                          <input
+                            type="number"
+                            value={String(editForm.toh || '')}
+                            onChange={(e) => setEditForm({ ...editForm, toh: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="80"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">POH Count</label>
+                          <input
+                            type="number"
+                            value={String(editForm.poh || '')}
+                            onChange={(e) => setEditForm({ ...editForm, poh: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Vacant</label>
+                          <input
+                            type="number"
+                            value={String(editForm.vacant || '')}
+                            onChange={(e) => setEditForm({ ...editForm, vacant: parseInt(e.target.value) || null })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="5"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Contact Email</label>
+                          <input
+                            type="email"
+                            value={String(editForm.contact_email || '')}
+                            onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="owner@example.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Listing URL</label>
+                          <input
+                            type="url"
+                            value={String(editForm.listing_url || '')}
+                            onChange={(e) => setEditForm({ ...editForm, listing_url: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-1">Source</label>
+                          <input
+                            type="text"
+                            value={String(editForm.source || '')}
+                            onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                            placeholder="Manual Entry"
+                          />
+                        </div>
+                        <div className="md:col-span-3">
+                          <label className="block text-sm text-muted-foreground mb-1">Notes</label>
+                          <textarea
+                            value={String(editForm.notes || '')}
+                            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground min-h-[80px]"
+                            placeholder="Additional notes..."
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3 mt-6">
+                        <button
+                          onClick={() => {
+                            setIsEditingProperty(false)
+                            setSelectedProperty(null)
+                            setEditForm({})
+                          }}
+                          className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveProperty}
+                          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                          {selectedProperty?.id ? 'Update Property' : 'Create Property'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {propertiesList.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>No properties found. Search or add a new property.</p>
+                        </div>
+                      ) : (
+                        propertiesList.map((property) => (
+                          <div
+                            key={String(property.id)}
+                            className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border hover:border-primary/30 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <h4 className="font-medium text-foreground">{String(property.name)}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {String(property.city)}, {String(property.state)} - {String(property.units)} units
+                                {property.asking_price ? ` - $${Number(property.asking_price).toLocaleString()}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {property.listing_url ? (
+                                <a
+                                  href={String(property.listing_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                  <Link className="w-4 h-4" />
+                                </a>
+                              ) : null}
+                              <button
+                                onClick={() => runAiTask('analyze_property', [String(property.id)])}
+                                className="p-2 text-muted-foreground hover:text-purple-500 transition-colors"
+                                title="AI Analyze"
+                              >
+                                <Bot className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedProperty(property)
+                                  setEditForm(property)
+                                  setIsEditingProperty(true)
+                                }}
+                                className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteProperty(String(property.id))}
+                                className="p-2 text-muted-foreground hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AI Tasks Tab */}
+              {activeTab === 'ai' && (
+                <div className="space-y-6">
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-5">
+                    <h3 className="font-semibold text-purple-600 dark:text-purple-400 mb-2 flex items-center gap-2">
+                      <Bot className="w-5 h-5" />
+                      AI-Powered Tasks
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Use AI to analyze properties, generate reports, enrich data, and automate repetitive tasks.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <label className="block text-sm text-muted-foreground mb-2">Select Task</label>
+                        <select
+                          value={selectedAiTask}
+                          onChange={(e) => setSelectedAiTask(e.target.value)}
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                        >
+                          <option value="analyze_property">Analyze Property</option>
+                          <option value="generate_description">Generate Description</option>
+                          <option value="find_listing_url">Find Listing URL</option>
+                          <option value="enrich_data">Enrich Data</option>
+                          <option value="market_analysis">Market Analysis</option>
+                          <option value="investment_score">Calculate Investment Score</option>
+                          <option value="compare_properties">Compare Properties</option>
+                          <option value="generate_report">Generate Report</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-end">
+                        <button
+                          onClick={() => runAiTask(selectedAiTask, selectedProperty ? [String(selectedProperty.id)] : undefined)}
+                          disabled={aiTaskRunning}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors"
+                        >
+                          {aiTaskRunning ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Running...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4" />
+                              Run Task
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Task Descriptions */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                      {[
+                        { id: 'analyze_property', name: 'Analyze', icon: <Target className="w-4 h-4" />, color: 'text-blue-500' },
+                        { id: 'generate_description', name: 'Description', icon: <FileText className="w-4 h-4" />, color: 'text-emerald-500' },
+                        { id: 'investment_score', name: 'Score', icon: <BarChart3 className="w-4 h-4" />, color: 'text-amber-500' },
+                        { id: 'generate_report', name: 'Report', icon: <FileText className="w-4 h-4" />, color: 'text-cyan-500' },
+                      ].map(task => (
+                        <button
+                          key={task.id}
+                          onClick={() => {
+                            setSelectedAiTask(task.id)
+                            runAiTask(task.id)
+                          }}
+                          disabled={aiTaskRunning}
+                          className={`flex items-center justify-center gap-2 p-3 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 ${task.color}`}
+                        >
+                          {task.icon}
+                          <span className="text-sm">{task.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* AI Result Display */}
+                    {aiTaskResult && (
+                      <div className="bg-background/50 rounded-lg p-4 border border-border">
+                        <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          Task Result
+                        </h4>
+                        {'error' in aiTaskResult ? (
+                          <p className="text-red-500">{String(aiTaskResult.message || 'Task failed')}</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {aiTaskResult.result && typeof aiTaskResult.result === 'object' && !Array.isArray(aiTaskResult.result) ? (
+                              <>
+                                {(aiTaskResult.result as Record<string, unknown>).analysis ? (
+                                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+                                      {String((aiTaskResult.result as Record<string, unknown>).analysis)}
+                                    </pre>
+                                  </div>
+                                ) : null}
+                                {(aiTaskResult.result as Record<string, unknown>).description ? (
+                                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+                                      {String((aiTaskResult.result as Record<string, unknown>).description)}
+                                    </pre>
+                                  </div>
+                                ) : null}
+                                {(aiTaskResult.result as Record<string, unknown>).report ? (
+                                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+                                      {String((aiTaskResult.result as Record<string, unknown>).report)}
+                                    </pre>
+                                  </div>
+                                ) : null}
+                                {(aiTaskResult.result as Record<string, unknown>).score !== undefined ? (
+                                  <div className="flex items-center gap-4">
+                                    <div className="text-center">
+                                      <p className="text-3xl font-bold text-foreground">{String((aiTaskResult.result as Record<string, unknown>).score)}</p>
+                                      <p className="text-sm text-muted-foreground">Score</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-3xl font-bold text-foreground">{String((aiTaskResult.result as Record<string, unknown>).grade)}</p>
+                                      <p className="text-sm text-muted-foreground">Grade</p>
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {(aiTaskResult.result as Record<string, unknown>).searchUrls ? (
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-medium text-foreground">Search URLs:</p>
+                                    {((aiTaskResult.result as Record<string, unknown>).searchUrls as Array<{ name: string; url: string }>).map((url, i) => (
+                                      <a
+                                        key={i}
+                                        href={url.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        {url.name}
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Real Estate Sources */}
+                  <div className="bg-secondary/30 rounded-xl p-5 border border-border">
+                    <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-blue-500" />
+                      Real Estate Listing Sources
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Search for MHC listings across multiple platforms:
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { name: 'MHVillage', url: 'https://www.mhvillage.com/Search?type=community', color: 'bg-emerald-500/10 text-emerald-600' },
+                        { name: 'LoopNet', url: 'https://www.loopnet.com/search/mobile-home-parks/for-sale/', color: 'bg-blue-500/10 text-blue-600' },
+                        { name: 'Crexi', url: 'https://www.crexi.com/properties?asset=Mobile%20Home%20Parks', color: 'bg-purple-500/10 text-purple-600' },
+                        { name: 'MHP Store', url: 'https://www.mobilehomeparkstore.com/mobile-home-parks-for-sale/', color: 'bg-amber-500/10 text-amber-600' },
+                      ].map(source => (
+                        <a
+                          key={source.name}
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center justify-center gap-2 p-3 rounded-lg hover:opacity-80 transition-opacity ${source.color}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          {source.name}
+                        </a>
+                      ))}
                     </div>
                   </div>
                 </div>
