@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  verifyPropertyImage,
+  verifyGoogleStreetView,
+  generateImageUrl,
+  calculateVerificationStats,
+  type ImageVerificationResult
+} from '@/lib/image-verification'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -203,7 +210,7 @@ function getPlaceholderImage(): string {
   return PLACEHOLDER_IMAGES[Math.floor(Math.random() * PLACEHOLDER_IMAGES.length)]
 }
 
-// POST: Update properties with the best available images
+// POST: Update properties with the best available images using verification
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY
@@ -215,13 +222,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { propertyId, updateAll, forceRefresh, limit = 100 } = body
+    const { propertyId, updateAll, forceRefresh, verifyOnly, limit = 100 } = body
 
     let properties: Array<{
       id: string
       address: string | null
       city: string
       state: string
+      latitude: number | null
+      longitude: number | null
       image_url: string | null
     }> = []
 
@@ -229,7 +238,7 @@ export async function POST(request: NextRequest) {
       // Update single property
       const { data } = await supabase
         .from('properties')
-        .select('id, address, city, state, image_url')
+        .select('id, address, city, state, latitude, longitude, image_url')
         .eq('id', propertyId)
         .single()
 
@@ -238,27 +247,32 @@ export async function POST(request: NextRequest) {
       // Update all properties without proper images or with placeholder images
       let query = supabase
         .from('properties')
-        .select('id, address, city, state, image_url')
+        .select('id, address, city, state, latitude, longitude, image_url')
 
       if (!forceRefresh) {
-        // Only update properties without images or with unsplash placeholders
-        query = query.or('image_url.is.null,image_url.like.%unsplash%')
+        // Only update properties without images, with placeholders, or with unverified images
+        query = query.or('image_url.is.null,image_url.like.%unsplash%,image_url.like.%placeholder%')
       }
 
       const { data } = await query.limit(limit)
       properties = data || []
     }
 
+    const verificationResults: ImageVerificationResult[] = []
     const results = {
       processed: 0,
       streetView: 0,
       satellite: 0,
       placeholder: 0,
+      verified: 0,
+      updated: 0,
       failed: 0,
       details: [] as Array<{
         id: string
-        source: ImageSource
+        source: string
+        confidence: number
         imageAge?: string
+        issues: string[]
       }>
     }
 
@@ -271,36 +285,49 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const imageResult = await getBestImage(
-          property.address,
-          property.city,
-          property.state,
-          apiKey
-        )
+        // Use the new verification system
+        const verification = await verifyPropertyImage(property, apiKey)
+        verificationResults.push(verification)
 
         // Track source statistics
-        if (imageResult.source === 'street_view') results.streetView++
-        else if (imageResult.source === 'satellite') results.satellite++
+        if (verification.source === 'street_view') results.streetView++
+        else if (verification.source === 'satellite' || verification.source === 'hybrid') results.satellite++
         else results.placeholder++
+
+        if (verification.status === 'verified') results.verified++
 
         results.details.push({
           id: property.id,
-          source: imageResult.source,
-          imageAge: imageResult.metadata?.date
+          source: verification.source,
+          confidence: verification.confidence,
+          imageAge: verification.metadata.imageDate,
+          issues: verification.issues
         })
 
-        // Update the property
-        const { error } = await supabase
-          .from('properties')
-          .update({
-            image_url: imageResult.url,
+        // Update the property if not verify-only
+        if (!verifyOnly && verification.imageUrl) {
+          const updateData: Record<string, unknown> = {
+            image_url: verification.imageUrl,
             updated_at: new Date().toISOString()
-          })
-          .eq('id', property.id)
+          }
 
-        if (error) {
-          console.error(`Failed to update property ${property.id}:`, error)
-          results.failed++
+          // Also update coordinates if we got better ones from Street View metadata
+          if (verification.metadata.coordinates && !property.latitude) {
+            updateData.latitude = verification.metadata.coordinates.lat
+            updateData.longitude = verification.metadata.coordinates.lng
+          }
+
+          const { error } = await supabase
+            .from('properties')
+            .update(updateData)
+            .eq('id', property.id)
+
+          if (error) {
+            console.error(`Failed to update property ${property.id}:`, error)
+            results.failed++
+          } else {
+            results.updated++
+          }
         }
       } catch (error) {
         console.error(`Error processing property ${property.id}:`, error)
@@ -312,12 +339,18 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 150))
     }
 
+    // Calculate overall verification stats
+    const verificationStats = calculateVerificationStats(verificationResults)
+
     return NextResponse.json({
       success: true,
       ...results,
+      verificationStats,
       summary: {
         streetViewRate: results.processed > 0 ? Math.round((results.streetView / results.processed) * 100) : 0,
-        satelliteRate: results.processed > 0 ? Math.round((results.satellite / results.processed) * 100) : 0
+        satelliteRate: results.processed > 0 ? Math.round((results.satellite / results.processed) * 100) : 0,
+        verifiedRate: results.processed > 0 ? Math.round((results.verified / results.processed) * 100) : 0,
+        averageConfidence: verificationStats.averageConfidence
       },
       timestamp: new Date().toISOString()
     })

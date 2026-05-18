@@ -23,7 +23,8 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  DollarSign
 } from 'lucide-react'
 
 interface ScrapeJob {
@@ -46,7 +47,26 @@ interface ScrapeStats {
   lastScrape: string | null
   propertiesWithImages: number
   propertiesWithCoords: number
+  propertiesWithStreetView: number
   avgDataQuality: number
+  dataCompletenessScore: number
+  // Financial metrics
+  totalValue: number
+  averagePrice: number
+  averageCapRate: number
+  averagePricePerUnit: number
+  averageLotRent: number
+  // Quality indicators
+  highScoreCount: number
+  momPopCount: number
+  // Image stats
+  imageStats?: {
+    streetView: number
+    satellite: number
+    listing: number
+    placeholder: number
+    none: number
+  }
 }
 
 interface SourceStats {
@@ -88,13 +108,41 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/scrape')
-      const data = await response.json()
-      setJobs(data.recentJobs || [])
-      setStats(data.stats || null)
-      setSources(data.sources || [])
+      // Fetch scrape jobs and sources
+      const scrapeResponse = await fetch('/api/scrape')
+      const scrapeData = await scrapeResponse.json()
+      setJobs(scrapeData.recentJobs || [])
+      setSources(scrapeData.sources || [])
+      
+      // Fetch enhanced stats from dedicated stats API
+      const statsResponse = await fetch('/api/stats')
+      const statsData = await statsResponse.json()
+      
+      if (statsData.success && statsData.stats) {
+        setStats({
+          totalProperties: statsData.stats.totalProperties,
+          activeProperties: statsData.stats.activeListings,
+          lastScrape: statsData.stats.lastScrapeTime,
+          propertiesWithImages: statsData.stats.propertiesWithImages,
+          propertiesWithCoords: statsData.stats.propertiesWithCoordinates,
+          propertiesWithStreetView: statsData.stats.propertiesWithStreetView,
+          avgDataQuality: statsData.stats.dataCompletenessScore,
+          dataCompletenessScore: statsData.stats.dataCompletenessScore,
+          totalValue: statsData.stats.totalValue,
+          averagePrice: statsData.stats.averagePrice,
+          averageCapRate: statsData.stats.averageCapRate,
+          averagePricePerUnit: statsData.stats.averagePricePerUnit,
+          averageLotRent: statsData.stats.averageLotRent,
+          highScoreCount: statsData.stats.highScoreCount,
+          momPopCount: statsData.stats.momPopCount,
+          imageStats: statsData.stats.imageStats
+        })
+      } else {
+        // Fallback to basic stats from scrape API
+        setStats(scrapeData.stats || null)
+      }
     } catch (error) {
-      console.error('Failed to fetch scrape status:', error)
+      console.error('Failed to fetch status:', error)
     } finally {
       setIsLoading(false)
     }
@@ -306,38 +354,138 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               {/* Overview Tab */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {/* Stats Cards */}
+                  {/* Stats Cards - Row 1 */}
                   {stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-secondary/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Building2 className="w-4 h-4 text-primary" />
-                          <span className="text-sm text-muted-foreground">Total Properties</span>
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building2 className="w-4 h-4 text-primary" />
+                            <span className="text-sm text-muted-foreground">Total Properties</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{stats.totalProperties.toLocaleString()}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{stats.totalProperties.toLocaleString()}</p>
-                      </div>
-                      <div className="bg-secondary/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <TrendingUp className="w-4 h-4 text-emerald-500" />
-                          <span className="text-sm text-muted-foreground">Active Listings</span>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-500" />
+                            <span className="text-sm text-muted-foreground">Active Listings</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{stats.activeProperties.toLocaleString()}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{stats.activeProperties.toLocaleString()}</p>
-                      </div>
-                      <div className="bg-secondary/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-blue-500" />
-                          <span className="text-sm text-muted-foreground">With Coordinates</span>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Target className="w-4 h-4 text-amber-500" />
+                            <span className="text-sm text-muted-foreground">High Score (80+)</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{(stats.highScoreCount || 0).toLocaleString()}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{stats.propertiesWithCoords?.toLocaleString() || 'N/A'}</p>
-                      </div>
-                      <div className="bg-secondary/50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Image className="w-4 h-4 text-purple-500" />
-                          <span className="text-sm text-muted-foreground">With Images</span>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Shield className="w-4 h-4 text-cyan-500" />
+                            <span className="text-sm text-muted-foreground">Data Quality</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{stats.dataCompletenessScore || 0}%</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{stats.propertiesWithImages?.toLocaleString() || 'N/A'}</p>
                       </div>
-                    </div>
+
+                      {/* Image & Location Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <MapPin className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm text-muted-foreground">With Coordinates</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{(stats.propertiesWithCoords || 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {stats.totalProperties > 0 ? Math.round((stats.propertiesWithCoords || 0) / stats.totalProperties * 100) : 0}% coverage
+                          </p>
+                        </div>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Image className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm text-muted-foreground">With Images</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{(stats.propertiesWithImages || 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {stats.totalProperties > 0 ? Math.round((stats.propertiesWithImages || 0) / stats.totalProperties * 100) : 0}% coverage
+                          </p>
+                        </div>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Globe className="w-4 h-4 text-green-500" />
+                            <span className="text-sm text-muted-foreground">Street View</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{(stats.imageStats?.streetView || stats.propertiesWithStreetView || 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Verified property images</p>
+                        </div>
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building2 className="w-4 h-4 text-rose-500" />
+                            <span className="text-sm text-muted-foreground">Mom & Pop</span>
+                          </div>
+                          <p className="text-2xl font-bold text-foreground">{(stats.momPopCount || 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Potential acquisition targets</p>
+                        </div>
+                      </div>
+
+                      {/* Financial Metrics */}
+                      <div className="bg-secondary/30 rounded-xl p-5 border border-border">
+                        <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                          <DollarSign className="w-5 h-5 text-emerald-500" />
+                          Financial Overview
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
+                            <p className="text-lg font-bold text-foreground">${((stats.totalValue || 0) / 1000000000).toFixed(2)}B</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Avg Asking Price</p>
+                            <p className="text-lg font-bold text-foreground">${((stats.averagePrice || 0) / 1000000).toFixed(2)}M</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Avg Cap Rate</p>
+                            <p className="text-lg font-bold text-foreground">{(stats.averageCapRate || 0).toFixed(1)}%</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Avg Price/Unit</p>
+                            <p className="text-lg font-bold text-foreground">${((stats.averagePricePerUnit || 0) / 1000).toFixed(0)}K</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Image Type Breakdown */}
+                      {stats.imageStats && (
+                        <div className="bg-secondary/30 rounded-xl p-5 border border-border">
+                          <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                            <Image className="w-5 h-5 text-purple-500" />
+                            Image Sources Breakdown
+                          </h4>
+                          <div className="grid grid-cols-5 gap-3">
+                            <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-green-500">{stats.imageStats.streetView}</p>
+                              <p className="text-xs text-muted-foreground">Street View</p>
+                            </div>
+                            <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-blue-500">{stats.imageStats.satellite}</p>
+                              <p className="text-xs text-muted-foreground">Satellite</p>
+                            </div>
+                            <div className="text-center p-3 bg-purple-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-purple-500">{stats.imageStats.listing}</p>
+                              <p className="text-xs text-muted-foreground">Listing</p>
+                            </div>
+                            <div className="text-center p-3 bg-amber-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-amber-500">{stats.imageStats.placeholder}</p>
+                              <p className="text-xs text-muted-foreground">Placeholder</p>
+                            </div>
+                            <div className="text-center p-3 bg-red-500/10 rounded-lg">
+                              <p className="text-2xl font-bold text-red-500">{stats.imageStats.none}</p>
+                              <p className="text-xs text-muted-foreground">None</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Quick Actions */}
