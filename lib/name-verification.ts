@@ -30,6 +30,7 @@ const MHC_SUFFIXES = [
 ]
 
 // Generic/placeholder names that need replacement
+// These must be EXACT matches (case-insensitive) to the full name, not partial matches
 const GENERIC_NAMES = [
   'unnamed property',
   'unknown',
@@ -43,7 +44,8 @@ const GENERIC_NAMES = [
   'not available',
   'mobile home community',
   'manufactured housing',
-  'trailer park'
+  'trailer park',
+  'manufactured home community'
 ]
 
 // Common name prefixes to look for
@@ -67,9 +69,11 @@ export function verifyPropertyName(
   let confidence = 100
   let source: NameVerificationResult['source'] = 'original'
 
-  // Check if name is empty or generic
+  // Check if name is empty or EXACTLY matches a generic placeholder
+  // Don't flag names like "Oak Crest Mobile Home Park" - only flag "Mobile Home Park" alone
+  const normalizedName = correctedName.toLowerCase().trim()
   const isGeneric = !correctedName || 
-    GENERIC_NAMES.some(g => correctedName.toLowerCase().includes(g.toLowerCase()))
+    GENERIC_NAMES.some(g => normalizedName === g.toLowerCase())
 
   if (isGeneric) {
     issues.push('Name is generic or missing')

@@ -79,7 +79,7 @@ interface SourceStats {
   totalListings?: number
 }
 
-type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images'
+type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import'
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -91,6 +91,11 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [isGeocoding, setIsGeocoding] = useState(false)
   const [isUpdatingImages, setIsUpdatingImages] = useState(false)
   const [isEnriching, setIsEnriching] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importPreview, setImportPreview] = useState<{
+    summary?: { totalLeads?: number; total?: number; toInsert?: number; inserted?: number; toUpdate?: number; updated?: number; duplicates?: number; skipped?: number; failed?: number }
+    preview?: { insert?: Array<{ name: string }>; update?: Array<{ name: string; existingName: string }> }
+  } | null>(null)
   const [scrapeResult, setScrapeResult] = useState<Record<string, unknown> | null>(null)
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -302,6 +307,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     { id: 'scraper', label: 'Scraper', icon: <Zap className="w-4 h-4" /> },
     { id: 'quality', label: 'Data Quality', icon: <Shield className="w-4 h-4" /> },
     { id: 'images', label: 'Images', icon: <Image className="w-4 h-4" /> },
+    { id: 'import', label: 'Import', icon: <Database className="w-4 h-4" /> },
   ]
 
   return (
@@ -1119,6 +1125,182 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                           <p className="text-xs text-muted-foreground">Images from the listing source if available</p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Tab */}
+              {activeTab === 'import' && (
+                <div className="space-y-6">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5">
+                    <h3 className="font-semibold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-2">
+                      <Database className="w-5 h-5" />
+                      Monday Leads Import
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Import the latest Monday leads export (5.8.2026) containing 95+ mobile home community listings with detailed pricing, unit counts, and contact information.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/import-leads')
+                            const data = await response.json()
+                            setImportPreview(data)
+                          } catch (error) {
+                            console.error('Preview failed:', error)
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 rounded-lg hover:bg-emerald-500/30 transition-colors"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        Preview Import
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          setIsImporting(true)
+                          try {
+                            const response = await fetch('/api/import-leads', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ dryRun: true })
+                            })
+                            const data = await response.json()
+                            setImportPreview(data)
+                          } catch (error) {
+                            console.error('Dry run failed:', error)
+                          } finally {
+                            setIsImporting(false)
+                          }
+                        }}
+                        disabled={isImporting}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-500/20 border border-amber-500/30 text-amber-600 rounded-lg hover:bg-amber-500/30 disabled:opacity-50 transition-colors"
+                      >
+                        {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                        Dry Run
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          if (!confirm('This will import all leads and may update existing properties. Continue?')) return
+                          setIsImporting(true)
+                          try {
+                            const response = await fetch('/api/import-leads', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ dryRun: false, updateExisting: true })
+                            })
+                            const data = await response.json()
+                            setImportPreview(data)
+                            fetchStatus()
+                            alert(`Import complete!\nInserted: ${data.summary?.inserted || 0}\nUpdated: ${data.summary?.updated || 0}\nSkipped: ${data.summary?.skipped || 0}`)
+                          } catch (error) {
+                            console.error('Import failed:', error)
+                          } finally {
+                            setIsImporting(false)
+                          }
+                        }}
+                        disabled={isImporting}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+                      >
+                        {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                        Import All Leads
+                      </button>
+                    </div>
+
+                    {importPreview && (
+                      <div className="bg-background/50 rounded-lg p-4 mt-4">
+                        <h4 className="font-medium text-foreground mb-3">Import Preview</h4>
+                        {importPreview.summary && (
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                            <div className="text-center p-2 bg-secondary/50 rounded">
+                              <p className="text-xl font-bold text-foreground">{importPreview.summary.totalLeads || importPreview.summary.total || 0}</p>
+                              <p className="text-xs text-muted-foreground">Total Leads</p>
+                            </div>
+                            <div className="text-center p-2 bg-emerald-500/10 rounded">
+                              <p className="text-xl font-bold text-emerald-500">{importPreview.summary.toInsert || importPreview.summary.inserted || 0}</p>
+                              <p className="text-xs text-muted-foreground">To Insert</p>
+                            </div>
+                            <div className="text-center p-2 bg-blue-500/10 rounded">
+                              <p className="text-xl font-bold text-blue-500">{importPreview.summary.toUpdate || importPreview.summary.updated || 0}</p>
+                              <p className="text-xs text-muted-foreground">To Update</p>
+                            </div>
+                            <div className="text-center p-2 bg-amber-500/10 rounded">
+                              <p className="text-xl font-bold text-amber-500">{importPreview.summary.duplicates || importPreview.summary.skipped || 0}</p>
+                              <p className="text-xs text-muted-foreground">Duplicates</p>
+                            </div>
+                            <div className="text-center p-2 bg-rose-500/10 rounded">
+                              <p className="text-xl font-bold text-rose-500">{importPreview.summary.failed || 0}</p>
+                              <p className="text-xs text-muted-foreground">Failed</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {importPreview.preview && (
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {(importPreview.preview.insert || []).slice(0, 5).map((item, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm">
+                                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 rounded text-xs">INSERT</span>
+                                <span className="text-foreground">{item.name}</span>
+                              </div>
+                            ))}
+                            {(importPreview.preview.update || []).slice(0, 5).map((item, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm">
+                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-600 rounded text-xs">UPDATE</span>
+                                <span className="text-foreground">{item.name}</span>
+                                <span className="text-muted-foreground">-&gt; {item.existingName}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-secondary/30 rounded-xl p-5">
+                    <h4 className="font-semibold text-foreground mb-4">Post-Import Actions</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      After importing, run these actions to complete the data:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <button
+                        onClick={triggerGeocoding}
+                        disabled={isGeocoding}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 rounded-lg hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
+                      >
+                        {isGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                        Geocode Addresses
+                      </button>
+                      <button
+                        onClick={triggerImageUpdate}
+                        disabled={isUpdatingImages}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 rounded-lg hover:bg-purple-500/20 disabled:opacity-50 transition-colors"
+                      >
+                        {isUpdatingImages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+                        Fetch Street View
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/fix-names', { 
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ fixAll: true, limit: 200 })
+                            })
+                            const data = await response.json()
+                            alert(`Fixed ${data.fixed} property names`)
+                          } catch (error) {
+                            console.error('Fix names failed:', error)
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg hover:bg-amber-500/20 transition-colors"
+                      >
+                        <Building2 className="w-4 h-4" />
+                        Verify Names
+                      </button>
                     </div>
                   </div>
                 </div>
