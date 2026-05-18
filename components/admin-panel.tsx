@@ -91,6 +91,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [isGeocoding, setIsGeocoding] = useState(false)
   const [isUpdatingImages, setIsUpdatingImages] = useState(false)
   const [isEnriching, setIsEnriching] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
   const [scrapeResult, setScrapeResult] = useState<Record<string, unknown> | null>(null)
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -228,6 +229,30 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       setScrapeResult({ error: true, message: errorMessage })
     } finally {
       setIsEnriching(false)
+    }
+  }
+
+  const triggerImport = async () => {
+    setIsImporting(true)
+    try {
+      const response = await fetch('/api/import-listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      const result = await response.json()
+      setScrapeResult({
+        message: result.message,
+        inserted: result.results?.inserted,
+        updated: result.results?.updated,
+        errors: result.results?.errors?.length || 0
+      })
+      await fetchStatus()
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setScrapeResult({ error: true, message: errorMessage })
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -489,7 +514,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   )}
 
                   {/* Quick Actions */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <button
                       onClick={() => triggerScrape()}
                       disabled={isScraping}
@@ -497,6 +522,14 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     >
                       {isScraping ? <Loader2 className="w-6 h-6 animate-spin text-emerald-500" /> : <Zap className="w-6 h-6 text-emerald-500" />}
                       <span className="text-sm font-medium text-emerald-600">Run Full Scrape</span>
+                    </button>
+                    <button
+                      onClick={triggerImport}
+                      disabled={isImporting}
+                      className="flex flex-col items-center gap-2 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      {isImporting ? <Loader2 className="w-6 h-6 animate-spin text-cyan-500" /> : <Database className="w-6 h-6 text-cyan-500" />}
+                      <span className="text-sm font-medium text-cyan-600">Import Listings</span>
                     </button>
                     <button
                       onClick={triggerGeocoding}
