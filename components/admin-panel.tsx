@@ -1012,6 +1012,83 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
 
+                  {/* Data Quality Actions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-secondary/50 rounded-xl p-5">
+                      <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-amber-500" />
+                        Property Names
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Verify and fix property names that are generic, missing, or incorrect.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/fix-names')
+                              const data = await response.json()
+                              alert(`Name Analysis:\n- Total: ${data.stats?.total || 0}\n- Need Fix: ${data.stats?.needsFix || 0}\n- Avg Confidence: ${data.stats?.averageConfidence || 0}%`)
+                            } catch (error) {
+                              console.error('Analysis failed:', error)
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg hover:bg-amber-500/20 transition-colors"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Analyze
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/fix-names', { 
+                                method: 'POST', 
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fixAll: true, limit: 200 }) 
+                              })
+                              const data = await response.json()
+                              alert(`Fixed ${data.fixed} property names`)
+                              fetchStatus()
+                            } catch (error) {
+                              console.error('Fix names failed:', error)
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                        >
+                          <Zap className="w-4 h-4" />
+                          Fix All
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-secondary/50 rounded-xl p-5">
+                      <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Database className="w-5 h-5 text-cyan-500" />
+                        Data Enrichment
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Enrich property data with market analysis, financial metrics, and quality scores.
+                      </p>
+                      <button
+                        onClick={triggerEnrichment}
+                        disabled={isEnriching}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 rounded-lg hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
+                      >
+                        {isEnriching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Enriching...
+                          </>
+                        ) : (
+                          <>
+                            <Database className="w-4 h-4" />
+                            Enrich All Properties
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="bg-secondary/30 rounded-xl p-5">
                     <h4 className="font-semibold text-foreground mb-4">Image Sources (Priority Order)</h4>
                     <div className="space-y-3">

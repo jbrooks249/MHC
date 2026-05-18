@@ -18,6 +18,7 @@ import {
   US_STATES,
   STATE_NAMES,
 } from './scraper-sources'
+import { verifyPropertyName } from './name-verification'
 import {
   validateListing,
   validateListings,
@@ -331,6 +332,15 @@ async function scrapeUrl(
         }
       }
 
+      // Verify and correct the property name
+      const nameVerification = verifyPropertyName(
+        raw.name || raw.title || null,
+        raw.address || raw.street_address || null,
+        city || 'Unknown',
+        state || 'XX'
+      )
+      const verifiedName = nameVerification.correctedName
+
       // Build listing URL
       let listingUrl = raw.property_url || raw.url || raw.link || ''
       if (listingUrl && !listingUrl.startsWith('http')) {
@@ -338,7 +348,7 @@ async function scrapeUrl(
       }
 
       const listing: ScrapedListing = {
-        name: raw.name || raw.title || 'Unnamed Property',
+        name: verifiedName,
         address: raw.address || raw.street_address || null,
         city: city || 'Unknown',
         state: state || 'XX',
