@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// Use OpenAI GPT-4 as the default model
+const model = openai('gpt-4-turbo-preview')
 
 // AI task types
 type AITaskType = 
@@ -133,7 +137,7 @@ Provide a brief analysis covering:
 Keep the response concise and actionable.`
 
   const { text } = await generateText({
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model,
     prompt,
     maxOutputTokens: 1000
   })
@@ -169,9 +173,9 @@ Write a compelling 2-3 paragraph description highlighting:
 Professional tone, suitable for commercial real estate listing.`
 
   const { text } = await generateText({
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model,
     prompt,
-    maxOutputTokens: 500
+    maxOutputTokens: 1000
   })
 
   return { 
@@ -271,9 +275,9 @@ Analyze:
 Keep response to 200 words maximum.`
 
   const { text } = await generateText({
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model,
     prompt,
-    maxOutputTokens: 400
+    maxOutputTokens: 500
   })
 
   return {
@@ -440,7 +444,7 @@ Create a professional investment report including:
 Keep the report concise but comprehensive (500 words max).`
 
   const { text } = await generateText({
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model,
     prompt,
     maxOutputTokens: 1000
   })
