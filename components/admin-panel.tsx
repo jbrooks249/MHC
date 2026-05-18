@@ -513,34 +513,15 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   ]
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Database className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Data Control Center</h2>
-              <p className="text-sm text-muted-foreground">Manage scraping, data quality, and enrichment</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-secondary rounded-lg transition-colors"
-          >
-            <XCircle className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </div>
-
+    <div className="bg-background min-h-screen">
+      <div className="bg-card border-b border-border">
         {/* Tabs */}
-        <div className="flex gap-1 px-6 pt-4 border-b border-border shrink-0">
+        <div className="flex gap-1 px-6 pt-4 border-b border-border shrink-0 overflow-x-auto max-w-7xl mx-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-secondary text-foreground border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
@@ -551,14 +532,15 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <>
+      <div className="p-6 max-w-7xl mx-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
               {/* Overview Tab */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
