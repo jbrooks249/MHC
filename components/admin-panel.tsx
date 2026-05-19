@@ -2140,7 +2140,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                                 </div>
                                 <div>
                                   <p className="font-medium text-foreground">
-                                    {String(log.action).replace('_', ' ').toUpperCase()}
+                                    {String(log.action).split('_').join(' ').toUpperCase()}
                                     {log.entity_name ? `: ${String(log.entity_name)}` : ''}
                                   </p>
                                   {log.details ? (
