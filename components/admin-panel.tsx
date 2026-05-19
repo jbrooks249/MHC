@@ -2095,7 +2095,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={fetchActivityLogs}
                       disabled={isLoadingLogs}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
                     >
                       {isLoadingLogs ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -2106,57 +2106,40 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
 
-                  <div className="bg-secondary/30 rounded-xl border border-border overflow-hidden">
+                  <div className="bg-secondary rounded-xl border border-border overflow-hidden">
                     {activityLogs.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
                         <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>No activity logged yet.</p>
                         <button
                           onClick={fetchActivityLogs}
-                          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
                         >
                           Load Activity Log
                         </button>
                       </div>
                     ) : (
-                      <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-                        {activityLogs.map((log) => {
-                          const actionStr = String(log.action || '')
-                          const actionDisplay = actionStr.split('_').join(' ').toUpperCase()
-                          const entityName = log.entity_name ? String(log.entity_name) : null
-                          const createdAt = log.created_at ? new Date(String(log.created_at)).toLocaleString() : 'Unknown'
-                          
-                          let iconBgClass = 'bg-secondary text-muted-foreground'
-                          if (actionStr === 'create') iconBgClass = 'bg-emerald-500/20 text-emerald-600'
-                          else if (actionStr === 'update') iconBgClass = 'bg-blue-500/20 text-blue-600'
-                          else if (actionStr === 'delete' || actionStr === 'bulk_delete') iconBgClass = 'bg-red-500/20 text-red-600'
-                          else if (actionStr === 'bulk_update') iconBgClass = 'bg-purple-500/20 text-purple-600'
-                          else if (actionStr === 'export') iconBgClass = 'bg-cyan-500/20 text-cyan-600'
-                          
-                          return (
-                            <div key={String(log.id)} className="p-4 hover:bg-secondary/50 transition-colors">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3">
-                                  <div className={`p-2 rounded-lg ${iconBgClass}`}>
-                                    {actionStr === 'create' && <Plus className="w-4 h-4" />}
-                                    {actionStr === 'update' && <Pencil className="w-4 h-4" />}
-                                    {(actionStr === 'delete' || actionStr === 'bulk_delete') && <Trash2 className="w-4 h-4" />}
-                                    {actionStr === 'bulk_update' && <Settings className="w-4 h-4" />}
-                                    {actionStr === 'export' && <FileText className="w-4 h-4" />}
-                                  </div>
-                                  <div>
-                                    <p className="font-medium text-foreground">
-                                      {actionDisplay}{entityName ? `: ${entityName}` : ''}
-                                    </p>
-                                  </div>
+                      <div className="divide-y divide-border max-h-96 overflow-y-auto">
+                        {activityLogs.map((log) => (
+                          <div key={String(log.id)} className="p-4 hover:bg-muted transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+                                  <Settings className="w-4 h-4" />
                                 </div>
-                                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                  {createdAt}
-                                </span>
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {String(log.action || 'action').toUpperCase()}
+                                    {log.entity_name ? ` - ${String(log.entity_name)}` : ''}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {log.created_at ? new Date(String(log.created_at)).toLocaleString() : 'Unknown time'}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          )
-                        })}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
