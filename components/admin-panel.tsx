@@ -2120,53 +2120,43 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       </div>
                     ) : (
                       <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-                        {activityLogs.map((log) => (
-                          <div key={String(log.id)} className="p-4 hover:bg-secondary/50 transition-colors">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${
-                                  log.action === 'create' ? 'bg-emerald-500/20 text-emerald-600' :
-                                  log.action === 'update' ? 'bg-blue-500/20 text-blue-600' :
-                                  log.action === 'delete' || log.action === 'bulk_delete' ? 'bg-red-500/20 text-red-600' :
-                                  log.action === 'bulk_update' ? 'bg-purple-500/20 text-purple-600' :
-                                  log.action === 'export' ? 'bg-cyan-500/20 text-cyan-600' :
-                                  'bg-secondary text-muted-foreground'
-                                }`}>
-                                  {log.action === 'create' && <Plus className="w-4 h-4" />}
-                                  {log.action === 'update' && <Pencil className="w-4 h-4" />}
-                                  {(log.action === 'delete' || log.action === 'bulk_delete') && <Trash2 className="w-4 h-4" />}
-                                  {log.action === 'bulk_update' && <Settings className="w-4 h-4" />}
-                                  {log.action === 'export' && <FileText className="w-4 h-4" />}
-                                </div>
-                                <div>
-                                  <p className="font-medium text-foreground">
-                                    {String(log.action).split('_').join(' ').toUpperCase()}
-                                    {log.entity_name ? `: ${String(log.entity_name)}` : ''}
-                                  </p>
-                                  {log.details ? (
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                      {typeof log.details === 'object' && (log.details as Record<string, unknown>).count 
-                                        ? `${(log.details as Record<string, unknown>).count} items affected` 
-                                        : JSON.stringify(log.details)}
+                        {activityLogs.map((log) => {
+                          const actionStr = String(log.action || '')
+                          const actionDisplay = actionStr.split('_').join(' ').toUpperCase()
+                          const entityName = log.entity_name ? String(log.entity_name) : null
+                          const createdAt = log.created_at ? new Date(String(log.created_at)).toLocaleString() : 'Unknown'
+                          
+                          let iconBgClass = 'bg-secondary text-muted-foreground'
+                          if (actionStr === 'create') iconBgClass = 'bg-emerald-500/20 text-emerald-600'
+                          else if (actionStr === 'update') iconBgClass = 'bg-blue-500/20 text-blue-600'
+                          else if (actionStr === 'delete' || actionStr === 'bulk_delete') iconBgClass = 'bg-red-500/20 text-red-600'
+                          else if (actionStr === 'bulk_update') iconBgClass = 'bg-purple-500/20 text-purple-600'
+                          else if (actionStr === 'export') iconBgClass = 'bg-cyan-500/20 text-cyan-600'
+                          
+                          return (
+                            <div key={String(log.id)} className="p-4 hover:bg-secondary/50 transition-colors">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-3">
+                                  <div className={`p-2 rounded-lg ${iconBgClass}`}>
+                                    {actionStr === 'create' && <Plus className="w-4 h-4" />}
+                                    {actionStr === 'update' && <Pencil className="w-4 h-4" />}
+                                    {(actionStr === 'delete' || actionStr === 'bulk_delete') && <Trash2 className="w-4 h-4" />}
+                                    {actionStr === 'bulk_update' && <Settings className="w-4 h-4" />}
+                                    {actionStr === 'export' && <FileText className="w-4 h-4" />}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-foreground">
+                                      {actionDisplay}{entityName ? `: ${entityName}` : ''}
                                     </p>
-                                  ) : null}
-                                  {log.changes && typeof log.changes === 'object' && Object.keys(log.changes as Record<string, unknown>).length > 0 ? (
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                      <span className="font-medium">Changes: </span>
-                                      {Object.entries(log.changes as Record<string, unknown>)
-                                        .filter(([key]) => key !== 'updated_at')
-                                        .map(([key, value]) => `${key}: ${String(value)}`)
-                                        .join(', ')}
-                                    </div>
-                                  ) : null}
+                                  </div>
                                 </div>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {createdAt}
+                                </span>
                               </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {log.created_at ? new Date(String(log.created_at)).toLocaleString() : 'Unknown'}
-                              </span>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
