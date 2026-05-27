@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import FirecrawlApp from '@mendable/firecrawl-js'
+import Firecrawl from '@mendable/firecrawl-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const firecrawl = new FirecrawlApp({ apiKey: firecrawlKey })
+        const firecrawl = new Firecrawl({ apiKey: firecrawlKey })
     
     const results = {
       total_scraped: 0,
@@ -211,15 +211,17 @@ export async function POST(request: NextRequest) {
 
         try {
           // Scrape the page using Firecrawl
-          const scrapeResult = await firecrawl.scrapeUrl(url, {
+          const scrapeResult = await firecrawl.scrape(url, {
             formats: ['markdown', 'html'],
           })
 
-          if (!scrapeResult.success) {
-            throw new Error(scrapeResult.error || 'Scrape failed')
-          }
-
+          // The new Firecrawl SDK returns the document directly
           const content = scrapeResult.markdown || scrapeResult.html || ''
+          
+          if (!content) {
+            throw new Error('No content returned from scrape')
+          }
+          
           const listings = extractListingData(content, source.name, url)
           
           let added = 0
@@ -343,15 +345,44 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active')
 
+    // Count properties with images
+    const { count: propertiesWithImages } = await supabase
+      .from('properties')
+      .select('*', { count: 'exact', head: true })
+      .not('image_url', 'is', null)
+
+    // Count properties with coordinates
+    const { count: propertiesWithCoords } = await supabase
+      .from('properties')
+      .select('*', { count: 'exact', head: true })
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+
+    // Import and get all sources from the enhanced scraper
+    const { ALL_SOURCES } = await import('@/lib/enhanced-scraper')
+    
+    // Map sources for admin panel
+    const sources = ALL_SOURCES.map((source: { id: string; name: string; type: string; enabled: boolean; reliabilityScore: number }) => ({
+      id: source.id,
+      name: source.name,
+      type: source.type,
+      enabled: source.enabled,
+      reliabilityScore: source.reliabilityScore
+    }))
+
     return NextResponse.json({
       recentJobs: recentJobs || [],
       stats: {
         totalProperties,
         activeProperties,
+        propertiesWithImages,
+        propertiesWithCoords,
         lastScrape: recentJobs?.[0]?.created_at
-      }
+      },
+      sources
     })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

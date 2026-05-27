@@ -250,16 +250,20 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                   Listing data verified from trusted commercial real estate database
                 </span>
               </div>
-              {property.listing_url && (
+              {property.listing_url ? (
                 <a
                   href={property.listing_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:underline text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  {property.listing_url}
+                  <ExternalLink className="w-5 h-5" />
+                  View Original Listing
                 </a>
+              ) : (
+                <div className="text-sm text-muted-foreground italic">
+                  Original listing URL not available - data imported from aggregated sources
+                </div>
               )}
             </div>
           </div>
@@ -283,7 +287,7 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                 className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80 transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
-                View Original Listing
+                Open in New Tab
               </a>
             )}
           </div>
