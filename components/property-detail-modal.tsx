@@ -3,13 +3,14 @@
 import { Property } from '@/lib/types'
 import { 
   X, MapPin, Users, TrendingUp, DollarSign, Sparkles, Building2, 
-  Home, Mail, ExternalLink, FileText, Calendar, Percent
+  Home, Mail, ExternalLink, FileText, Calendar, Percent, Pencil
 } from 'lucide-react'
 import { useEffect } from 'react'
 
 interface PropertyDetailModalProps {
   property: Property | null
   onClose: () => void
+  onEdit?: (property: Property) => void
 }
 
 function formatPrice(price: number | null): string {
@@ -44,7 +45,7 @@ function getScoreLabel(score: number | null): string {
   return 'Needs Review'
 }
 
-export function PropertyDetailModal({ property, onClose }: PropertyDetailModalProps) {
+export function PropertyDetailModal({ property, onClose, onEdit }: PropertyDetailModalProps) {
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -73,6 +74,17 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
         >
           <X className="w-5 h-5 text-foreground" />
         </button>
+
+        {/* Edit button */}
+        {onEdit && (
+          <button
+            onClick={() => onEdit(property)}
+            className="absolute top-4 right-16 z-10 flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            <span className="text-sm font-medium">Edit</span>
+          </button>
+        )}
 
         {/* Header with Image */}
         <div className="relative h-56 bg-gradient-to-br from-primary/20 via-secondary to-muted overflow-hidden">
