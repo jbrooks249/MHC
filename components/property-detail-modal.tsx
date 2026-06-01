@@ -3,13 +3,15 @@
 import { Property } from '@/lib/types'
 import { 
   X, MapPin, Users, TrendingUp, DollarSign, Sparkles, Building2, 
-  Home, Mail, ExternalLink, FileText, Calendar, Percent
+  Home, Mail, ExternalLink, FileText, Pencil, Loader2, Wand2
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { SimpleMarkdown } from './simple-markdown'
 
 interface PropertyDetailModalProps {
   property: Property | null
   onClose: () => void
+  onEdit?: (property: Property) => void
 }
 
 function formatPrice(price: number | null): string {
@@ -44,7 +46,18 @@ function getScoreLabel(score: number | null): string {
   return 'Needs Review'
 }
 
-export function PropertyDetailModal({ property, onClose }: PropertyDetailModalProps) {
+export function PropertyDetailModal({ property, onClose, onEdit }: PropertyDetailModalProps) {
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
+  // Reset summary whenever a different property is opened
+  useEffect(() => {
+    setSummary(null)
+    setSummaryError(null)
+    setSummaryLoading(false)
+  }, [property?.id])
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -53,6 +66,26 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
+
+  async function handleGenerateSummary() {
+    if (!property) return
+    setSummaryLoading(true)
+    setSummaryError(null)
+    try {
+      const res = await fetch('/api/ai/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to generate summary')
+      setSummary(data.summary)
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
 
   if (!property) return null
 
@@ -73,6 +106,17 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
         >
           <X className="w-5 h-5 text-foreground" />
         </button>
+
+        {/* Edit button */}
+        {onEdit && (
+          <button
+            onClick={() => onEdit(property)}
+            className="absolute top-4 right-16 z-10 flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+            <span className="text-sm font-medium">Edit</span>
+          </button>
+        )}
 
         {/* Header with Image */}
         <div className="relative h-56 bg-gradient-to-br from-primary/20 via-secondary to-muted overflow-hidden">
@@ -190,6 +234,66 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                 ? (property.price_per_pad ? `$${property.price_per_pad.toLocaleString()}` : 'N/A')
                 : formatPercent(property.occupancy)}
             />
+          </div>
+
+          {/* AI Deal Summary */}
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                AI Deal Summary
+              </h3>
+              {!summary && (
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={summaryLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {summaryLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-4 h-4" />
+                      Generate
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {!summary && !summaryLoading && !summaryError && (
+              <p className="text-sm text-muted-foreground">
+                Generate an AI-written investment summary with strengths, risks, and a recommendation.
+              </p>
+            )}
+
+            {summaryLoading && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                ChatGPT is analyzing this deal...
+              </p>
+            )}
+
+            {summaryError && (
+              <p className="text-sm text-destructive">{summaryError}</p>
+            )}
+
+            {summary && (
+              <div className="mt-2">
+                <SimpleMarkdown content={summary} />
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={summaryLoading}
+                  className="mt-3 flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  Regenerate
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Financial Details */}

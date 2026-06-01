@@ -6,9 +6,12 @@ import { SearchFilters } from './search-filters'
 import { PropertyGrid } from './property-grid'
 import { StatsBar } from './stats-bar'
 import { PropertyDetailModal } from './property-detail-modal'
+import { EditListingModal } from './edit-listing-modal'
 import { PropertyMap } from './property-map'
+import { AiChatWidget } from './ai-chat-widget'
 import { createClient } from '@/lib/supabase/client'
-import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp } from 'lucide-react'
+import { exportToExcel } from '@/lib/excel-export'
+import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp, Download } from 'lucide-react'
 import Link from 'next/link'
 
 const defaultFilters: FilterState = {
@@ -31,6 +34,7 @@ export function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
   const [marketTab, setMarketTab] = useState<'active' | 'sold'>('active')
 
@@ -190,6 +194,33 @@ export function Dashboard() {
     setSelectedProperty(null)
   }, [])
 
+  const handleEditProperty = useCallback((property: Property) => {
+    setEditingProperty(property)
+  }, [])
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditingProperty(null)
+  }, [])
+
+  const handleSaveProperty = useCallback((updatedProperty: Property) => {
+    // Update the property in the local state
+    setProperties(prev => 
+      prev.map(p => p.id === updatedProperty.id ? updatedProperty : p)
+    )
+    setEditingProperty(null)
+    // Also update the selected property if it's the same one
+    if (selectedProperty?.id === updatedProperty.id) {
+      setSelectedProperty(updatedProperty)
+    }
+  }, [selectedProperty])
+
+  const handleExportExcel = useCallback(() => {
+    exportToExcel(filteredProperties, {
+      filename: `mhc-${marketTab}-listings-${new Date().toISOString().split('T')[0]}`,
+      includeMetrics: true
+    })
+  }, [filteredProperties, marketTab])
+
   if (error) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -302,8 +333,19 @@ export function Dashboard() {
               {marketTab === 'sold' ? 'sold' : 'active'} properties
             </p>
             
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+            <div className="flex items-center gap-3">
+              {/* Export Button */}
+              <button
+                onClick={handleExportExcel}
+                disabled={filteredProperties.length === 0}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Export Excel
+              </button>
+              
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -326,6 +368,7 @@ export function Dashboard() {
                 <Map className="w-4 h-4" />
                 Map
               </button>
+              </div>
             </div>
           </div>
           
@@ -352,7 +395,19 @@ export function Dashboard() {
       <PropertyDetailModal 
         property={selectedProperty}
         onClose={handleCloseModal}
+        onEdit={handleEditProperty}
       />
+
+      {/* Edit Listing Modal */}
+      <EditListingModal
+        key={editingProperty?.id ?? 'edit-modal'}
+        property={editingProperty}
+        onClose={handleCloseEditModal}
+        onSave={handleSaveProperty}
+      />
+
+      {/* AI Chat Assistant */}
+      <AiChatWidget />
     </div>
   )
 }
