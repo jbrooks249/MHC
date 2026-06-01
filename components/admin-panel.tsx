@@ -1988,7 +1988,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                           Task Result
                         </h4>
-                        {'error' in aiTaskResult ? (
+                        {('error' in aiTaskResult) ? (
                           <p className="text-red-500">{String(aiTaskResult.message || 'Task failed')}</p>
                         ) : (
                           <div className="space-y-3">
