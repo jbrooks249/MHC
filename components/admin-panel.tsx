@@ -1435,7 +1435,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                               <div key={i} className="flex items-center gap-2 text-sm">
                                 <span className="px-2 py-0.5 bg-blue-500/20 text-blue-600 rounded text-xs">UPDATE</span>
                                 <span className="text-foreground">{item.name}</span>
-                                <span className="text-muted-foreground">-&gt; {item.existingName}</span>
+                                <span className="text-muted-foreground">{"->"} {item.existingName}</span>
                               </div>
                             ))}
                           </div>
