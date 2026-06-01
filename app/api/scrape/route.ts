@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import FirecrawlApp from '@mendable/firecrawl-js'
+import Firecrawl from '@mendable/firecrawl-js'
+
+export const maxDuration = 300
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -316,8 +318,8 @@ function processRawListing(raw: RawListing, source: string, sourceUrl: string) {
     ai_score: 0,
     status: 'active' as const,
     mom_pop: true,
-    latitude: 0,
-    longitude: 0,
+    latitude: null as number | null,
+    longitude: null as number | null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
@@ -325,7 +327,7 @@ function processRawListing(raw: RawListing, source: string, sourceUrl: string) {
   // Calculate AI score
   listing.ai_score = calculateAIScore(listing)
   
-  // Add coordinates
+  // Add approximate coordinates for map display (jittered around state center)
   const coords = STATE_COORDS[state]
   if (coords) {
     listing.latitude = coords.lat + (Math.random() - 0.5) * 2
@@ -343,9 +345,9 @@ function processRawListing(raw: RawListing, source: string, sourceUrl: string) {
   return listing
 }
 
-// Scrape a single URL with retry logic
+// Scrape a single URL with retry logic (Firecrawl v4 API)
 async function scrapeUrlWithRetry(
-  firecrawl: FirecrawlApp, 
+  firecrawl: Firecrawl, 
   url: string, 
   extractionPrompt: string,
   maxRetries = 2
@@ -354,26 +356,30 @@ async function scrapeUrlWithRetry(
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // First try with structured extraction
-      const scrapeResult = await firecrawl.scrapeUrl(url, {
-        formats: ['extract', 'markdown'],
-        extract: {
-          schema: EXTRACTION_SCHEMA,
-          prompt: extractionPrompt,
-        },
-        timeout: 30000,
+      // Use the v4 scrape API with a JSON format for structured extraction
+      const doc = await firecrawl.scrape(url, {
+        formats: [
+          {
+            type: 'json',
+            prompt: extractionPrompt,
+            schema: EXTRACTION_SCHEMA,
+          },
+          'markdown',
+        ],
+        onlyMainContent: true,
+        waitFor: 3000,
+        timeout: 60000,
       })
 
-      if (scrapeResult.success && scrapeResult.extract?.listings?.length > 0) {
-        return { 
-          success: true, 
-          listings: scrapeResult.extract.listings as RawListing[]
-        }
+      // The structured data lives on doc.json
+      const json = doc?.json as { listings?: RawListing[] } | undefined
+      if (json?.listings && json.listings.length > 0) {
+        return { success: true, listings: json.listings }
       }
       
-      // If extraction failed but we got markdown, try to parse it manually
-      if (scrapeResult.markdown) {
-        const manualListings = parseMarkdownContent(scrapeResult.markdown, url)
+      // Fallback: parse the markdown content manually
+      if (doc?.markdown) {
+        const manualListings = parseMarkdownContent(doc.markdown, url)
         if (manualListings.length > 0) {
           return { success: true, listings: manualListings }
         }
@@ -384,7 +390,7 @@ async function scrapeUrlWithRetry(
       lastError = error instanceof Error ? error.message : 'Unknown error'
       console.error(`[v0] Scrape attempt ${attempt + 1} failed for ${url}:`, lastError)
       
-      // Wait before retry
+      // Wait before retry (exponential backoff)
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)))
       }
@@ -454,7 +460,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const firecrawl = new FirecrawlApp({ apiKey: firecrawlKey })
+    const firecrawl = new Firecrawl({ apiKey: firecrawlKey })
     
     const results = {
       total_scraped: 0,

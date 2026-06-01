@@ -10,7 +10,7 @@ import { EditListingModal } from './edit-listing-modal'
 import { PropertyMap } from './property-map'
 import { createClient } from '@/lib/supabase/client'
 import { exportToExcel } from '@/lib/excel-export'
-import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp, Download, Pencil } from 'lucide-react'
+import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp, Download } from 'lucide-react'
 import Link from 'next/link'
 
 const defaultFilters: FilterState = {
@@ -399,6 +399,7 @@ export function Dashboard() {
 
       {/* Edit Listing Modal */}
       <EditListingModal
+        key={editingProperty?.id ?? 'edit-modal'}
         property={editingProperty}
         onClose={handleCloseEditModal}
         onSave={handleSaveProperty}
