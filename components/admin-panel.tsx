@@ -88,6 +88,75 @@ interface SourceStats {
 
 type TabType = 'overview' | 'sources' | 'scraper' | 'quality' | 'images' | 'import' | 'ai' | 'properties' | 'activity'
 
+// Extracted component to avoid parser issues with complex inline JSX
+function AITaskResultDisplay({ result }: { result: { error?: unknown; message?: string; result?: unknown } }) {
+  if ('error' in result) {
+    return <p className="text-red-500">{String(result.message || 'Task failed')}</p>
+  }
+
+  const data = result.result
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return null
+  }
+
+  const obj = data as Record<string, unknown>
+
+  return (
+    <div className="space-y-3">
+      {obj.analysis && (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+            {String(obj.analysis)}
+          </pre>
+        </div>
+      )}
+      {obj.description && (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+            {String(obj.description)}
+          </pre>
+        </div>
+      )}
+      {obj.report && (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
+            {String(obj.report)}
+          </pre>
+        </div>
+      )}
+      {obj.score !== undefined && (
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="text-3xl font-bold text-foreground">{String(obj.score)}</p>
+            <p className="text-sm text-muted-foreground">Score</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-foreground">{String(obj.grade)}</p>
+            <p className="text-sm text-muted-foreground">Grade</p>
+          </div>
+        </div>
+      )}
+      {obj.searchUrls && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Search URLs:</p>
+          {(obj.searchUrls as Array<{ name: string; url: string }>).map((url, i) => (
+            <a
+              key={i}
+              href={url.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {url.name}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [jobs, setJobs] = useState<ScrapeJob[]>([])
@@ -1988,66 +2057,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                           Task Result
                         </h4>
-                        {('error' in aiTaskResult) ? (
-                          <p className="text-red-500">{String(aiTaskResult.message || 'Task failed')}</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {aiTaskResult.result && typeof aiTaskResult.result === 'object' && !Array.isArray(aiTaskResult.result) ? (
-                              <>
-                                {(aiTaskResult.result as Record<string, unknown>).analysis ? (
-                                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
-                                      {String((aiTaskResult.result as Record<string, unknown>).analysis)}
-                                    </pre>
-                                  </div>
-                                ) : null}
-                                {(aiTaskResult.result as Record<string, unknown>).description ? (
-                                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
-                                      {String((aiTaskResult.result as Record<string, unknown>).description)}
-                                    </pre>
-                                  </div>
-                                ) : null}
-                                {(aiTaskResult.result as Record<string, unknown>).report ? (
-                                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <pre className="whitespace-pre-wrap text-sm text-foreground bg-secondary/50 p-3 rounded-lg overflow-auto max-h-96">
-                                      {String((aiTaskResult.result as Record<string, unknown>).report)}
-                                    </pre>
-                                  </div>
-                                ) : null}
-                                {(aiTaskResult.result as Record<string, unknown>).score !== undefined ? (
-                                  <div className="flex items-center gap-4">
-                                    <div className="text-center">
-                                      <p className="text-3xl font-bold text-foreground">{String((aiTaskResult.result as Record<string, unknown>).score)}</p>
-                                      <p className="text-sm text-muted-foreground">Score</p>
-                                    </div>
-                                    <div className="text-center">
-                                      <p className="text-3xl font-bold text-foreground">{String((aiTaskResult.result as Record<string, unknown>).grade)}</p>
-                                      <p className="text-sm text-muted-foreground">Grade</p>
-                                    </div>
-                                  </div>
-                                ) : null}
-                                {(aiTaskResult.result as Record<string, unknown>).searchUrls ? (
-                                  <div className="space-y-2">
-                                    <p className="text-sm font-medium text-foreground">Search URLs:</p>
-                                    {((aiTaskResult.result as Record<string, unknown>).searchUrls as Array<{ name: string; url: string }>).map((url, i) => (
-                                      <a
-                                        key={i}
-                                        href={url.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                      >
-                                        <ExternalLink className="w-3 h-3" />
-                                        {url.name}
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </>
-                            ) : null}
-                          </div>
-                        )}
+                        <AITaskResultDisplay result={aiTaskResult} />
                       </div>
                     )}
                   </div>
