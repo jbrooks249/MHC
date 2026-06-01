@@ -452,11 +452,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const firecrawlKey = process.env.FIRECRAWL_API_KEY
+    // Check for Firecrawl API key from environment or settings table
+    let firecrawlKey = process.env.FIRECRAWL_API_KEY
+    
+    if (!firecrawlKey) {
+      // Try to get from settings table
+      const { data: setting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'firecrawl_api_key')
+        .single()
+      
+      if (setting?.value) {
+        firecrawlKey = setting.value
+      }
+    }
+    
     if (!firecrawlKey) {
       return NextResponse.json({ 
         error: 'FIRECRAWL_API_KEY not configured',
-        message: 'Please add your Firecrawl API key in the project settings'
+        message: 'Please add your Firecrawl API key in Settings (Admin > Settings)'
       }, { status: 500 })
     }
 

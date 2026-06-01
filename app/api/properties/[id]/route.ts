@@ -62,6 +62,7 @@ export async function PATCH(
       'notes',
       'contact_email',
       'listing_url',
+      'image_url',
       'price_per_pad',
       'toh',
       'poh',

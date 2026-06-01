@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Property } from '@/lib/types'
 import { 
   X, Save, Loader2, DollarSign, Users, TrendingUp, 
-  MapPin, Building2, FileText, AlertCircle
+  MapPin, Building2, FileText, AlertCircle, Image, Upload
 } from 'lucide-react'
 
 interface EditListingModalProps {
@@ -36,6 +36,7 @@ interface FormData {
   sold_date: string
   buyer: string
   mom_pop: boolean
+  image_url: string
 }
 
 export function EditListingModal({ property, onClose, onSave }: EditListingModalProps) {
@@ -65,6 +66,7 @@ export function EditListingModal({ property, onClose, onSave }: EditListingModal
     sold_date: property?.sold_date?.split('T')[0] || '',
     buyer: property?.buyer || '',
     mom_pop: property?.mom_pop ?? true,
+    image_url: property?.image_url || '',
   }))
 
   if (!property) return null
@@ -100,6 +102,7 @@ export function EditListingModal({ property, onClose, onSave }: EditListingModal
         listing_url: formData.listing_url || null,
         status: formData.status,
         mom_pop: formData.mom_pop,
+        image_url: formData.image_url || null,
       }
 
       // Add sold fields if status is sold
@@ -255,6 +258,53 @@ export function EditListingModal({ property, onClose, onSave }: EditListingModal
                   <option value="pending">Pending</option>
                   <option value="sold">Sold</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Thumbnail Section */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <Image className="w-4 h-4 text-primary" />
+              Property Thumbnail
+            </h3>
+            <div className="flex gap-4">
+              {/* Image Preview */}
+              <div className="w-32 h-24 rounded-lg bg-secondary border border-border overflow-hidden flex-shrink-0">
+                {formData.image_url ? (
+                  <img
+                    src={formData.image_url}
+                    alt="Property thumbnail"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                      const parent = (e.target as HTMLImageElement).parentElement
+                      if (parent) {
+                        parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    <Image className="w-8 h-8" />
+                  </div>
+                )}
+              </div>
+              {/* URL Input */}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.image_url}
+                  onChange={(e) => handleChange('image_url', e.target.value)}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="https://example.com/image.jpg"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter a direct URL to an image, or leave blank to use Street View
+                </p>
               </div>
             </div>
           </div>

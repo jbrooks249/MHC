@@ -20,9 +20,11 @@ import {
   Globe,
   Clock,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Settings
 } from 'lucide-react'
 import Link from 'next/link'
+import { SettingsPanel } from '@/components/settings-panel'
 
 interface ScrapingSource {
   id: string
@@ -134,6 +136,7 @@ export default function AdminPage() {
   const [scrapeJobs, setScrapeJobs] = useState<any[]>([])
   const [isUpdatingImages, setIsUpdatingImages] = useState(false)
   const [imageUpdateResult, setImageUpdateResult] = useState<any>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   const fetchScrapeJobs = async () => {
     try {
@@ -242,6 +245,13 @@ export default function AdminPage() {
                   <span>+{scrapeResult.total_added} new, {scrapeResult.total_updated} updated</span>
                 </div>
               )}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
               <button
                 onClick={handleScrapeAll}
                 disabled={isScrapingAll}
@@ -501,6 +511,11 @@ export default function AdminPage() {
           )}
         </div>
       </main>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <SettingsPanel onClose={() => setShowSettings(false)} />
+      )}
     </div>
   )
 }
