@@ -165,7 +165,7 @@ export default function AnalysisPage() {
                   <p className="text-2xl font-bold text-yellow-400">{stats.scoreDistribution.moderate}</p>
                 </div>
                 <div className="rounded-lg bg-slate-500/20 border border-slate-500/50 px-4 py-3">
-                  <p className="text-sm text-slate-400">Fair (<50)</p>
+                  <p className="text-sm text-slate-400">Fair (&lt;50)</p>
                   <p className="text-2xl font-bold text-slate-400">{stats.scoreDistribution.fair}</p>
                 </div>
               </div>
