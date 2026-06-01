@@ -45,9 +45,9 @@ export default function AnalysisPage() {
     }
 
     const totalUnits = properties.reduce((sum, p) => sum + p.units, 0)
-    const totalValue = properties.reduce((sum, p) => sum + p.asking_price, 0)
-    const avgCapRate = properties.reduce((sum, p) => sum + p.cap_rate, 0) / properties.length
-    const avgOccupancy = properties.reduce((sum, p) => sum + p.occupancy, 0) / properties.length
+    const totalValue = properties.reduce((sum, p) => sum + (p.asking_price || 0), 0)
+    const avgCapRate = properties.reduce((sum, p) => sum + (p.cap_rate || 0), 0) / properties.length
+    const avgOccupancy = properties.reduce((sum, p) => sum + (p.occupancy || 0), 0) / properties.length
     const momPopCount = properties.filter(p => p.mom_pop).length
 
     // Group by state
@@ -58,7 +58,7 @@ export default function AnalysisPage() {
       }
       byState[prop.state].count += 1
       byState[prop.state].units += prop.units
-      byState[prop.state].avgScore += prop.ai_score
+      byState[prop.state].avgScore += (prop.ai_score || 0)
     })
 
     Object.keys(byState).forEach(state => {
@@ -67,10 +67,10 @@ export default function AnalysisPage() {
 
     // Score distribution
     const scoreDistribution = {
-      elite: properties.filter(p => p.ai_score >= 85).length,
-      strong: properties.filter(p => p.ai_score >= 70 && p.ai_score < 85).length,
-      moderate: properties.filter(p => p.ai_score >= 50 && p.ai_score < 70).length,
-      fair: properties.filter(p => p.ai_score < 50).length,
+      elite: properties.filter(p => (p.ai_score || 0) >= 85).length,
+      strong: properties.filter(p => (p.ai_score || 0) >= 70 && (p.ai_score || 0) < 85).length,
+      moderate: properties.filter(p => (p.ai_score || 0) >= 50 && (p.ai_score || 0) < 70).length,
+      fair: properties.filter(p => (p.ai_score || 0) < 50).length,
     }
 
     return {
@@ -165,7 +165,7 @@ export default function AnalysisPage() {
                   <p className="text-2xl font-bold text-yellow-400">{stats.scoreDistribution.moderate}</p>
                 </div>
                 <div className="rounded-lg bg-slate-500/20 border border-slate-500/50 px-4 py-3">
-                  <p className="text-sm text-slate-400">Fair (&lt;50)</p>
+                  <p className="text-sm text-slate-400">{"Fair (<50)"}</p>
                   <p className="text-2xl font-bold text-slate-400">{stats.scoreDistribution.fair}</p>
                 </div>
               </div>
