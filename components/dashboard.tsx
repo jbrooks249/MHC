@@ -8,6 +8,7 @@ import { StatsBar } from './stats-bar'
 import { PropertyDetailModal } from './property-detail-modal'
 import { EditListingModal } from './edit-listing-modal'
 import { PropertyMap } from './property-map'
+import { AiChatWidget } from './ai-chat-widget'
 import { createClient } from '@/lib/supabase/client'
 import { exportToExcel } from '@/lib/excel-export'
 import { Building2, Sparkles, Settings, Map, Grid3X3, TrendingDown, TrendingUp, Download } from 'lucide-react'
@@ -404,6 +405,9 @@ export function Dashboard() {
         onClose={handleCloseEditModal}
         onSave={handleSaveProperty}
       />
+
+      {/* AI Chat Assistant */}
+      <AiChatWidget />
     </div>
   )
 }

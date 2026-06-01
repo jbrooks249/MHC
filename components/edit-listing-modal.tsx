@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Property } from '@/lib/types'
 import { 
   X, Save, Loader2, DollarSign, Users, TrendingUp, 
-  MapPin, Building2, FileText, AlertCircle, Image, Upload
+  MapPin, Building2, FileText, AlertCircle, Image, Wand2, Check
 } from 'lucide-react'
 
 interface EditListingModalProps {
@@ -42,6 +42,8 @@ interface FormData {
 export function EditListingModal({ property, onClose, onSave }: EditListingModalProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCleaning, setIsCleaning] = useState(false)
+  const [cleanupChanges, setCleanupChanges] = useState<string[] | null>(null)
   
   const [formData, setFormData] = useState<FormData>(() => ({
     name: property?.name || '',
@@ -73,6 +75,69 @@ export function EditListingModal({ property, onClose, onSave }: EditListingModal
 
   const handleChange = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleAiCleanup = async () => {
+    if (!property) return
+    setIsCleaning(true)
+    setError(null)
+    setCleanupChanges(null)
+    try {
+      const res = await fetch('/api/ai/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Send the latest in-progress form values so cleanup reflects edits
+        body: JSON.stringify({
+          property: {
+            ...property,
+            name: formData.name,
+            address: formData.address || null,
+            city: formData.city,
+            state: formData.state,
+            region: formData.region || null,
+            units: formData.units ? parseInt(formData.units) : null,
+            asking_price: formData.asking_price ? parseFloat(formData.asking_price) : null,
+            cap_rate: formData.cap_rate ? parseFloat(formData.cap_rate) : null,
+            lot_rent: formData.lot_rent ? parseFloat(formData.lot_rent) : null,
+            occupancy: formData.occupancy ? parseFloat(formData.occupancy) : null,
+            noi: formData.noi ? parseFloat(formData.noi) : null,
+            toh: formData.toh ? parseInt(formData.toh) : null,
+            poh: formData.poh ? parseInt(formData.poh) : null,
+            vacant: formData.vacant ? parseInt(formData.vacant) : null,
+            notes: formData.notes || null,
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to clean data')
+
+      const c = data.cleaned as Record<string, unknown> & { changes?: string[] }
+      const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+
+      setFormData(prev => ({
+        ...prev,
+        name: c.name != null ? String(c.name) : prev.name,
+        address: str(c.address) || prev.address,
+        city: c.city != null ? String(c.city) : prev.city,
+        state: c.state != null ? String(c.state) : prev.state,
+        region: c.region != null ? String(c.region) : prev.region,
+        units: str(c.units) || prev.units,
+        asking_price: str(c.asking_price) || prev.asking_price,
+        cap_rate: str(c.cap_rate) || prev.cap_rate,
+        lot_rent: str(c.lot_rent) || prev.lot_rent,
+        occupancy: str(c.occupancy) || prev.occupancy,
+        noi: str(c.noi) || prev.noi,
+        toh: str(c.toh) || prev.toh,
+        poh: str(c.poh) || prev.poh,
+        vacant: str(c.vacant) || prev.vacant,
+        notes: c.notes != null ? String(c.notes) : prev.notes,
+      }))
+      setCleanupChanges(c.changes && c.changes.length > 0 ? c.changes : ['No changes needed — data already looks clean.'])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setIsCleaning(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,6 +234,52 @@ export function EditListingModal({ property, onClose, onSave }: EditListingModal
               <p className="text-sm">{error}</p>
             </div>
           )}
+
+          {/* AI Cleanup */}
+          <div className="flex flex-col gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Wand2 className="w-4 h-4 text-primary" />
+                  AI Data Cleanup
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Normalize messy scraped values (state, region, prices, percentages) automatically.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAiCleanup}
+                disabled={isCleaning}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              >
+                {isCleaning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Cleaning...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    Clean with AI
+                  </>
+                )}
+              </button>
+            </div>
+            {cleanupChanges && (
+              <div className="border-t border-primary/20 pt-3">
+                <p className="text-xs font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-primary" />
+                  Cleanup applied — review before saving:
+                </p>
+                <ul className="list-disc pl-5 space-y-0.5 text-xs text-muted-foreground">
+                  {cleanupChanges.map((change, i) => (
+                    <li key={i}>{change}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
           {/* Basic Info Section */}
           <div className="space-y-4">
