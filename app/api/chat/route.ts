@@ -10,10 +10,9 @@ import {
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import type { Property } from '@/lib/types'
+import { getChatModel, isAiConfigured, aiDisabledResponse } from '@/lib/ai'
 
 export const maxDuration = 30
-
-const MODEL = 'openai/gpt-5.4-mini'
 
 function compactProperty(p: Property): string {
   return [
@@ -85,6 +84,12 @@ const cleanedSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  // Key-ready guard: no OpenAI key => respond with a clear disabled payload
+  // instead of throwing. Works immediately once OPENAI_API_KEY is added.
+  if (!isAiConfigured()) {
+    return aiDisabledResponse()
+  }
+
   try {
     const { messages } = (await req.json()) as { messages: UIMessage[] }
 
@@ -110,7 +115,7 @@ export async function POST(req: Request) {
     }
 
     const result = streamText({
-      model: MODEL,
+      model: getChatModel(),
       system:
         'You are the MHC Acquisition Intelligence assistant, an expert in manufactured housing community (mobile home park) investing. ' +
         'You help the acquisition team explore their listing database AND make edits to listing data. ' +
@@ -173,7 +178,7 @@ export async function POST(req: Request) {
               if (!p) return { error: 'Listing not found' }
               const prop = p as Property
               const { text } = await generateText({
-                model: MODEL,
+                model: getChatModel(),
                 system:
                   'You are a senior acquisitions analyst for manufactured housing communities. Write a concise, decision-oriented investment summary. Use only the data provided; flag unknowns as diligence items. Never invent numbers.',
                 prompt:
@@ -221,7 +226,7 @@ export async function POST(req: Request) {
                 notes: prop.notes,
               }
               const { experimental_output } = await generateText({
-                model: MODEL,
+                model: getChatModel(),
                 experimental_output: Output.object({ schema: cleanedSchema }),
                 system:
                   'You normalize messy scraped mobile home park listing data into clean values. ' +

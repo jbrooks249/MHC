@@ -1,10 +1,9 @@
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import type { Property } from '@/lib/types'
+import { getChatModel, isAiConfigured, aiDisabledResponse } from '@/lib/ai'
 
 export const maxDuration = 30
-
-const MODEL = 'openai/gpt-5.4-mini'
 
 // nullable() (not optional()) for OpenAI strict mode compatibility
 const cleanedSchema = z.object({
@@ -37,6 +36,10 @@ const cleanedSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  if (!isAiConfigured()) {
+    return aiDisabledResponse()
+  }
+
   try {
     const { property } = (await req.json()) as { property: Property }
 
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     const { experimental_output } = await generateText({
-      model: MODEL,
+      model: getChatModel(),
       experimental_output: Output.object({ schema: cleanedSchema }),
       system:
         'You normalize messy scraped manufactured housing community (mobile home park) listing data into clean, consistent values. ' +

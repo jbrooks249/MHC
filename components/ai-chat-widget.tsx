@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import useSWR from 'swr'
 import { useChat } from '@ai-sdk/react'
 import {
   DefaultChatTransport,
@@ -81,11 +82,21 @@ function getText(message: UIMessage): string {
     .join('')
 }
 
+const statusFetcher = (url: string) => fetch(url).then((r) => r.json())
+
 export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidgetProps) {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Is the assistant ready? (i.e. OPENAI_API_KEY is set on the server)
+  const { data: aiStatus } = useSWR<{ configured: boolean; model: string | null }>(
+    '/api/ai/status',
+    statusFetcher,
+  )
+  // Treat as enabled until we know otherwise, so the UI doesn't flash disabled.
+  const aiConfigured = aiStatus?.configured !== false
 
   const { messages, sendMessage, status, error, addToolOutput } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
@@ -101,7 +112,7 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
 
   const submit = (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed || isBusy) return
+    if (!trimmed || isBusy || !aiConfigured) return
     sendMessage({ text: trimmed })
     setInput('')
   }
@@ -289,6 +300,17 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
 
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {!aiConfigured && (
+              <div className="rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-muted-foreground flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
+                <span>
+                  The assistant is not connected yet. Add an{' '}
+                  <code className="font-mono text-xs text-foreground">OPENAI_API_KEY</code>{' '}
+                  environment variable to enable chat, data cleanup, and deal summaries.
+                </span>
+              </div>
+            )}
+
             {messages.length === 0 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
@@ -405,9 +427,11 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
 
             {error && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
-                {/rate-limit/i.test(error.message)
-                  ? 'The AI is rate-limited on the free tier. Add credits to your Vercel AI Gateway for unrestricted access, then try again.'
-                  : error.message || 'Something went wrong. Please try again.'}
+                {/not configured|api[_ ]?key|401|unauthor/i.test(error.message)
+                  ? 'The assistant could not authenticate. Check that OPENAI_API_KEY is set correctly, then try again.'
+                  : /rate.?limit|429/i.test(error.message)
+                    ? 'The assistant is rate-limited right now. Please wait a moment and try again.'
+                    : error.message || 'Something went wrong. Please try again.'}
               </div>
             )}
           </div>
@@ -423,12 +447,13 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask, or request an edit..."
-              className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              disabled={!aiConfigured}
+              placeholder={aiConfigured ? 'Ask, or request an edit...' : 'Add OPENAI_API_KEY to enable'}
+              className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={isBusy || !input.trim()}
+              disabled={isBusy || !input.trim() || !aiConfigured}
               className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
               <Send className="w-4 h-4" />
