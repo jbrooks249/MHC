@@ -118,21 +118,29 @@ export async function POST(req: Request) {
       model: getChatModel(),
       system:
         'You are the MHC Acquisition Intelligence assistant, an expert in manufactured housing community (mobile home park) investing. ' +
-        'You help the acquisition team explore their listing database AND make edits to listing data. ' +
-        'Answer analytical questions using the LISTING DATA provided below; if the answer is not in the data, say so plainly.\n\n' +
-        'CAPABILITIES (use tools):\n' +
-        '- To edit, clean, or summarize a SPECIFIC listing, FIRST call findListings to resolve the listing id. If multiple listings match, ask the user which one.\n' +
-        '- generateDealSummary(listingId): read-only investment summary. Safe to run on request.\n' +
-        '- cleanupListingData(listingId): returns normalized/cleaned values plus a change log. This does NOT save anything. After calling it, you MUST call proposeListingUpdate with the cleaned values so the user can confirm.\n' +
-        '- proposeListingUpdate(listingId, listingName, changes, reason): proposes an edit. This shows the user a confirmation card and is the ONLY way changes get applied. Put ONLY the fields you want to change in "changes" and set every other field to null. Never fabricate values.\n\n' +
-        'RULES:\n' +
-        '1) NEVER claim a listing was updated unless a proposeListingUpdate tool result comes back with applied=true. The user must confirm first.\n' +
-        '2) When the user asks to change a value (e.g. "set the cap rate to 7.5"), resolve the listing, then call proposeListingUpdate with just that field.\n' +
-        '3) Keep replies concise; use markdown (tables, bullets) where helpful.\n' +
-        '4) After a change is applied, briefly confirm what changed.\n\n' +
+        'You help the acquisition team explore their listing database AND edit/update listings end-to-end. ' +
+        'Your job is to do as much of the work as possible for the user with minimal back-and-forth: be proactive, decisive, and complete the full request in one turn whenever you safely can. ' +
+        'Answer analytical questions using the LISTING DATA below; if the answer is not in the data, say so plainly.\n\n' +
+        'TOOLS:\n' +
+        '- findListings(query): search by name, city, or state and resolve the listing id(s). Call this FIRST for any edit/clean/summary request that names a specific listing.\n' +
+        '- generateDealSummary(listingId): read-only investment summary. Run it directly when asked.\n' +
+        '- cleanupListingData(listingId): returns cleaned values AND a ready-to-use "proposedChanges" diff (only fields that differ). Does NOT save.\n' +
+        '- proposeListingUpdate(listingId, listingName, changes, reason): the ONLY way changes are applied. It shows the user a confirmation card; the edit happens only after they click Apply. In "changes", include ONLY the fields to modify and set every other field to null.\n\n' +
+        'OPERATING PROCEDURE — follow without asking for permission to use tools:\n' +
+        '1) EDIT A FIELD ("set cap rate on Oak Park to 7.5", "mark X as sold", "rename Y to Z", "update the notes to ..."): call findListings, then immediately call proposeListingUpdate with just the requested field(s). Parse natural values yourself ($1.2M -> 1200000, "92%" -> 92).\n' +
+        '2) CLEAN UP A LISTING: call findListings, then cleanupListingData, then — if hasChanges is true — immediately call proposeListingUpdate passing proposedChanges verbatim as "changes". If hasChanges is false, tell the user the data is already clean and do NOT propose anything.\n' +
+        '3) DEAL SUMMARY: call findListings (if a name is given), then generateDealSummary, then present the summary.\n' +
+        '4) BULK / "DO EVERYTHING" REQUESTS ("clean up all Texas parks", "mark these three as sold"): resolve the set with findListings, then emit a SEPARATE proposeListingUpdate for EACH affected listing in the same turn so the user gets one confirmation card per listing.\n\n' +
+        'DECISION RULES:\n' +
+        '- If exactly one listing matches, proceed without asking. Only ask the user to choose when findListings returns multiple plausible matches, or when a requested value is missing/unparseable.\n' +
+        '- NEVER fabricate values. Only propose fields the user explicitly requested or values derived from cleanupListingData / clear arithmetic.\n' +
+        '- NEVER claim a listing was updated unless a proposeListingUpdate result returns applied=true. Until then, say the change is "ready for your confirmation".\n' +
+        '- After a change returns applied=true, confirm in one short sentence exactly what changed. If applied=false/cancelled, acknowledge it was not saved and offer to revise.\n' +
+        '- Do not stop after a read-only/cleanup tool when the user asked for an edit — always continue to the proposeListingUpdate step.\n' +
+        '- Keep replies concise; use markdown (tables, bullets) where helpful.\n\n' +
         `=== LISTING DATA ===\n${portfolioContext}`,
       messages: await convertToModelMessages(messages),
-      stopWhen: stepCountIs(8),
+      stopWhen: stepCountIs(12),
       tools: {
         findListings: tool({
           description:
@@ -142,18 +150,35 @@ export async function POST(req: Request) {
           }),
           execute: async ({ query }) => {
             try {
-              const supabase = await createClient()
               const q = query.trim()
+              if (q.length < 2) {
+                return {
+                  count: 0,
+                  listings: [],
+                  note: 'Query too short — ask the user for the listing name, city, or state.',
+                }
+              }
+              // Escape characters that have special meaning inside a PostgREST ilike pattern.
+              const safe = q.replace(/[%,()]/g, ' ')
+              const supabase = await createClient()
               const { data } = await supabase
                 .from('properties')
                 .select(
                   'id, name, city, state, region, units, occupancy, cap_rate, asking_price, noi, lot_rent, mom_pop, status, ai_score',
                 )
-                .or(`name.ilike.%${q}%,city.ilike.%${q}%,state.ilike.%${q}%`)
+                .or(`name.ilike.%${safe}%,city.ilike.%${safe}%,state.ilike.%${safe}%`)
+                .order('ai_score', { ascending: false })
                 .limit(8)
+              const listings = data ?? []
               return {
-                count: data?.length ?? 0,
-                listings: data ?? [],
+                count: listings.length,
+                listings,
+                note:
+                  listings.length === 0
+                    ? 'No matches. Ask the user to rephrase or check the name.'
+                    : listings.length === 1
+                      ? 'Exactly one match — proceed without asking.'
+                      : 'Multiple matches — if the user was not specific, ask which one.',
               }
             } catch (e) {
               return { error: e instanceof Error ? e.message : 'Search failed', listings: [] }
@@ -194,7 +219,10 @@ export async function POST(req: Request) {
 
         cleanupListingData: tool({
           description:
-            'Analyze a listing by id and return normalized/cleaned field values plus a list of proposed changes. Does NOT save. After calling this, call proposeListingUpdate with the cleaned values so the user can confirm.',
+            'Analyze a listing by id and return normalized/cleaned values. Does NOT save. ' +
+            'The result includes "proposedChanges" — an object containing ONLY the fields that actually differ from the current values, ' +
+            'already typed correctly for proposeListingUpdate. You MUST immediately call proposeListingUpdate and pass proposedChanges as its "changes" so the user can confirm. ' +
+            'If proposedChanges is empty, tell the user the data is already clean and do NOT call proposeListingUpdate.',
           inputSchema: z.object({
             listingId: z.string().describe('The id of the listing to clean'),
           }),
@@ -236,7 +264,34 @@ export async function POST(req: Request) {
                   'in "changes", list every field you modified and why in short bullets, or return an empty array if nothing changed.',
                 prompt: `Clean and normalize this listing data:\n${JSON.stringify(raw, null, 2)}`,
               })
-              return { listingId, cleaned: experimental_output }
+
+              // Compute the exact diff so the model can pass it straight to proposeListingUpdate.
+              // Only fields whose cleaned value is non-null AND actually differs from the
+              // current stored value are included; everything else stays unchanged.
+              const cleaned = experimental_output as Record<string, unknown>
+              const proposedChanges: Record<string, unknown> = {}
+              const diffFields = [
+                'name', 'address', 'city', 'state', 'region', 'units', 'asking_price',
+                'cap_rate', 'lot_rent', 'occupancy', 'noi', 'toh', 'poh', 'vacant', 'notes',
+              ] as const
+              for (const field of diffFields) {
+                const next = cleaned[field]
+                if (next === null || next === undefined) continue
+                const currentVal = (prop as unknown as Record<string, unknown>)[field] ?? null
+                const norm = (v: unknown) =>
+                  typeof v === 'string' ? v.trim().toLowerCase() : v
+                if (norm(next) !== norm(currentVal)) {
+                  proposedChanges[field] = next
+                }
+              }
+
+              return {
+                listingId,
+                listingName: prop.name,
+                cleaned: experimental_output,
+                proposedChanges,
+                hasChanges: Object.keys(proposedChanges).length > 0,
+              }
             } catch (e) {
               return { error: e instanceof Error ? e.message : 'Failed to clean data' }
             }
