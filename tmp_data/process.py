@@ -132,16 +132,3 @@ db_not_pdf=[d for d in db if key(d["name"],d["city"],d["state"]) not in pdfkeys]
 print("DB rows NOT in PDF:", len(db_not_pdf))
 for d in db_not_pdf[:80]:
     print("   -", d["name"],"|",d["city"],d["state"],"| status",d["status"],"| src",d["source"])
-
-# ---- fuzzy dedup vs DB ----
-import difflib
-print("\n=== FUZZY CHECK: PDF unique vs DB (same state, name similarity>0.82) ===")
-hits=0
-for u in unique:
-    for d in db:
-        if (u["state"] or "")==(d["state"] or "") and u["state"]:
-            r=difflib.SequenceMatcher(None, norm_name(u["name"]), norm_name(d["name"])).ratio()
-            if r>0.82:
-                hits+=1
-                print(f"  {r:.2f}  PDF[{u['name']} / {u['city']},{u['state']}]  ~  DB[{d['name']} / {d['city']},{d['state']}]")
-print("fuzzy potential overlaps:", hits)
