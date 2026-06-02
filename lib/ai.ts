@@ -4,43 +4,41 @@ import type { LanguageModel } from 'ai'
 /**
  * Centralized AI configuration for the chatbot feature.
  *
- * Two ways to power the assistant — checked in this order:
+ * KEY-READY DESIGN
+ * ----------------
+ * The assistant is powered exclusively by the OpenAI (ChatGPT) API, read from
+ * the `OPENAI_API_KEY` environment variable. There is intentionally NO coupling
+ * to the Vercel AI Gateway or any other provider here — this keeps the
+ * integration layer simple and predictable so a ChatGPT key can be dropped in
+ * later with zero code changes.
  *
- *  1. Vercel AI Gateway (default, zero-config). When `AI_GATEWAY_API_KEY` (or a
- *     Vercel OIDC token in the Vercel runtime) is present, we pass a gateway
- *     model string like "openai/gpt-4o-mini" straight to the AI SDK. No API key
- *     handling in app code.
- *  2. A direct OpenAI key. If `OPENAI_API_KEY` is set it takes precedence and we
- *     talk to OpenAI directly. This lets you swap in your own ChatGPT key with
- *     zero code changes.
+ * Behavior:
+ *  - When `OPENAI_API_KEY` is set, the chatbot works immediately.
+ *  - When it is not set, `isAiConfigured()` returns false and every AI route
+ *    returns a clear, non-throwing "disabled" payload (see `aiDisabledResponse`).
+ *    No network calls to OpenAI are attempted.
  *
- * Optional: `OPENAI_CHAT_MODEL` overrides the model id (default "gpt-4o-mini").
- *
- * When neither credential is available, `isAiConfigured()` returns false and the
- * AI routes respond with a clear, non-throwing "disabled" payload.
+ * Optional overrides:
+ *  - `OPENAI_CHAT_MODEL` — model id to use (default "gpt-4o-mini").
+ *  - `OPENAI_BASE_URL`   — custom/compatible endpoint, if ever needed.
  */
 
 export const AI_DISABLED_MESSAGE =
-  'The AI assistant is not configured yet. Connect the Vercel AI Gateway (AI_GATEWAY_API_KEY) or add an OPENAI_API_KEY environment variable to enable it.'
+  'The AI assistant is not configured yet. Add an OPENAI_API_KEY environment variable to enable it.'
 
 export const DEFAULT_CHAT_MODEL = 'gpt-4o-mini'
 
-/** True when a direct OpenAI key is present. */
-function hasOpenAiKey(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim().length > 0)
+/** The trimmed OpenAI API key, or an empty string when unset. */
+function getOpenAiKey(): string {
+  return process.env.OPENAI_API_KEY?.trim() ?? ''
 }
 
-/** True when the Vercel AI Gateway is reachable (explicit key or OIDC runtime). */
-function hasGateway(): boolean {
-  return Boolean(
-    (process.env.AI_GATEWAY_API_KEY && process.env.AI_GATEWAY_API_KEY.trim().length > 0) ||
-      (process.env.VERCEL_OIDC_TOKEN && process.env.VERCEL_OIDC_TOKEN.trim().length > 0),
-  )
-}
-
-/** True when the assistant can run via EITHER the gateway or a direct key. */
+/**
+ * True when a usable OpenAI API key is present.
+ * Callers MUST guard with this before calling `getChatModel()`.
+ */
 export function isAiConfigured(): boolean {
-  return hasOpenAiKey() || hasGateway()
+  return getOpenAiKey().length > 0
 }
 
 /** The bare model id to use, overridable via OPENAI_CHAT_MODEL. */
@@ -49,27 +47,27 @@ export function getChatModelId(): string {
 }
 
 /**
- * Returns the language model for the assistant.
- * - Direct OpenAI key present  -> bound OpenAI provider model.
- * - Otherwise                  -> gateway model string ("openai/<model>").
+ * Returns the OpenAI language model for the assistant.
  *
- * Callers MUST guard with `isAiConfigured()` first and return
- * `aiDisabledResponse()` when it is not configured.
+ * Throws if no key is configured — this is a programming error, since callers
+ * are required to short-circuit with `aiDisabledResponse()` when
+ * `isAiConfigured()` is false. The throw is a safety net, never the disabled
+ * path users actually hit.
  */
 export function getChatModel(): LanguageModel {
-  const modelId = getChatModelId()
-  if (hasOpenAiKey()) {
-    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY!.trim() })
-    return openai(modelId)
+  const apiKey = getOpenAiKey()
+  if (!apiKey) {
+    throw new Error(
+      'OPENAI_API_KEY is not set. Guard AI calls with isAiConfigured() and return aiDisabledResponse().',
+    )
   }
-  if (hasGateway()) {
-    // Plain string routes through the Vercel AI Gateway using AI_GATEWAY_API_KEY / OIDC.
-    return modelId.includes('/') ? modelId : `openai/${modelId}`
-  }
-  throw new Error('No AI credentials configured (set AI_GATEWAY_API_KEY or OPENAI_API_KEY)')
+
+  const baseURL = process.env.OPENAI_BASE_URL?.trim() || undefined
+  const openai = createOpenAI({ apiKey, baseURL })
+  return openai(getChatModelId())
 }
 
-/** Standard 503 response used by AI routes when no credentials are configured. */
+/** Standard 503 response used by AI routes when no API key is configured. */
 export function aiDisabledResponse(): Response {
   return Response.json({ error: AI_DISABLED_MESSAGE, aiConfigured: false }, { status: 503 })
 }

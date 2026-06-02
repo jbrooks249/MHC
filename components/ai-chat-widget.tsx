@@ -305,9 +305,9 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
               <div className="rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-muted-foreground flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
                 <span>
-                  The assistant is not connected yet. Connect the Vercel AI Gateway (or add an{' '}
-                  <code className="font-mono text-xs text-foreground">OPENAI_API_KEY</code>) to
-                  enable chat, data cleanup, and deal summaries.
+                  The assistant is not connected yet. Add an{' '}
+                  <code className="font-mono text-xs text-foreground">OPENAI_API_KEY</code>{' '}
+                  environment variable to enable chat, data cleanup, and deal summaries.
                 </span>
               </div>
             )}
@@ -449,7 +449,7 @@ export function AiChatWidget({ properties = [], onListingUpdated }: AiChatWidget
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={!aiConfigured}
-              placeholder={aiConfigured ? 'Ask, or request an edit...' : 'Connect AI Gateway to enable'}
+              placeholder={aiConfigured ? 'Ask, or request an edit...' : 'Add OPENAI_API_KEY to enable'}
               className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <button
