@@ -407,7 +407,7 @@ export function Dashboard() {
       />
 
       {/* AI Chat Assistant */}
-      <AiChatWidget />
+      <AiChatWidget properties={properties} onListingUpdated={handleSaveProperty} />
     </div>
   )
 }
