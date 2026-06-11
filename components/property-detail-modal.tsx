@@ -51,11 +51,37 @@ export function PropertyDetailModal({ property, onClose, onEdit }: PropertyDetai
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
 
-  // Reset summary whenever a different property is opened
+  // Reset and auto-generate summary whenever a different property is opened
   useEffect(() => {
     setSummary(null)
     setSummaryError(null)
     setSummaryLoading(false)
+
+    if (!property) return
+    let cancelled = false
+
+    async function generate() {
+      setSummaryLoading(true)
+      try {
+        const res = await fetch('/api/ai/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ property }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to generate summary')
+        if (!cancelled) setSummary(data.summary)
+      } catch (err) {
+        if (!cancelled) setSummaryError(err instanceof Error ? err.message : 'Something went wrong')
+      } finally {
+        if (!cancelled) setSummaryLoading(false)
+      }
+    }
+
+    generate()
+    return () => {
+      cancelled = true
+    }
   }, [property?.id])
 
   // Handle escape key
@@ -243,41 +269,25 @@ export function PropertyDetailModal({ property, onClose, onEdit }: PropertyDetai
                 <Sparkles className="w-5 h-5 text-primary" />
                 AI Deal Summary
               </h3>
-              {!summary && (
+              {!summary && !summaryLoading && (
                 <button
                   onClick={handleGenerateSummary}
-                  disabled={summaryLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
-                  {summaryLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" />
-                      Generate
-                    </>
-                  )}
+                  <Wand2 className="w-4 h-4" />
+                  {summaryError ? 'Retry' : 'Generate'}
                 </button>
               )}
             </div>
 
-            {!summary && !summaryLoading && !summaryError && (
-              <p className="text-sm text-muted-foreground">
-                Generate an AI-written investment summary with strengths, risks, and a recommendation.
-              </p>
-            )}
-
             {summaryLoading && (
               <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                ChatGPT is analyzing this deal...
+                AI is analyzing this acquisition...
               </p>
             )}
 
-            {summaryError && (
+            {summaryError && !summaryLoading && (
               <p className="text-sm text-destructive">{summaryError}</p>
             )}
 
