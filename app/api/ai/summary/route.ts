@@ -1,10 +1,9 @@
 import { generateText } from 'ai'
 import type { Property } from '@/lib/types'
+import { getChatModel, isAiConfigured, aiDisabledResponse } from '@/lib/ai'
 
 // Do NOT use edge runtime with the AI SDK
 export const maxDuration = 30
-
-const MODEL = 'openai/gpt-5.4-mini'
 
 function buildPropertyContext(p: Property): string {
   const lines: string[] = [
@@ -33,6 +32,10 @@ function buildPropertyContext(p: Property): string {
 }
 
 export async function POST(req: Request) {
+  if (!isAiConfigured()) {
+    return aiDisabledResponse()
+  }
+
   try {
     const { property } = (await req.json()) as { property: Property }
 
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
     }
 
     const { text } = await generateText({
-      model: MODEL,
+      model: getChatModel(),
       system:
         'You are a senior acquisitions analyst specializing in manufactured housing communities (mobile home parks). ' +
         'You write concise, decision-oriented investment summaries for an acquisition team. ' +
